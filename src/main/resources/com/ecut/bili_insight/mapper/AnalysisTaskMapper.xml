@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecut.bili_insight.mapper.AnalysisTaskMapper">
+
+    <insert id="insert" parameterType="com.ecut.bili_insight.entity.AnalysisTask" useGeneratedKeys="true" keyProperty="taskId">
+        INSERT INTO analysis_task (bvid, status, progress, current_step, error_message, created_at, updated_at)
+        VALUES (#{bvid}, #{status}, #{progress}, #{currentStep}, #{errorMessage}, NOW(), NOW())
+    </insert>
+
+    <select id="findById" resultType="com.ecut.bili_insight.entity.AnalysisTask">
+        SELECT task_id AS taskId, bvid, status, progress, current_step AS currentStep,
+               error_message AS errorMessage, created_at AS createdAt, updated_at AS updatedAt
+        FROM analysis_task
+        WHERE task_id = #{taskId}
+    </select>
+
+    <select id="findByBvid" resultType="com.ecut.bili_insight.entity.AnalysisTask">
+        SELECT task_id AS taskId, bvid, status, progress, current_step AS currentStep,
+               error_message AS errorMessage, created_at AS createdAt, updated_at AS updatedAt
+        FROM analysis_task
+        WHERE bvid = #{bvid}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateStatus">
+        UPDATE analysis_task
+        SET status = #{status},
+            error_message = #{errorMessage},
+            updated_at = NOW()
+        WHERE task_id = #{taskId}
+    </update>
+
+    <update id="updateProgress">
+        UPDATE analysis_task
+        SET progress = #{progress},
+            current_step = #{currentStep},
+            updated_at = NOW()
+        WHERE task_id = #{taskId}
+    </update>
+
+    <select id="findRecent" resultType="com.ecut.bili_insight.entity.AnalysisTask">
+        SELECT task_id AS taskId, bvid, status, progress, current_step AS currentStep,
+               error_message AS errorMessage, created_at AS createdAt, updated_at AS updatedAt
+        FROM analysis_task
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

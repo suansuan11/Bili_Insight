@@ -1,0 +1,230 @@
+/* File: src/assets/styles/popular-videos.css */
+
+/* 页面整体背景和字体 */
+.popular-videos-page {
+  background-color: #f8fafc;
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+/* 页面主容器，设置一个更舒适的最大宽度 */
+.popular-videos-container {
+  max-width: 64rem; /* 1024px */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 页面标题 */
+.page-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+.page-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+.page-subtitle {
+  margin-top: 0.75rem;
+  font-size: 1.125rem;
+  color: #6b7280;
+}
+
+/* 单个视频列表项的容器 */
+.video-list-item {
+  display: flex;
+  gap: 1.25rem; /* 20px */
+  background-color: #ffffff;
+  padding: 1rem;
+  border-radius: 0.75rem; /* 12px 圆角 */
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.07),
+    0 1px 2px -1px rgb(0 0 0 / 0.04);
+  transition:
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+.video-list-item:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.08),
+    0 4px 6px -2px rgb(0 0 0 / 0.05);
+}
+/* 响应式布局：在小屏幕上垂直堆叠 */
+@media (max-width: 768px) {
+  .video-list-item {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* 左侧封面图容器 */
+.thumbnail-container {
+  width: 17rem;
+  height: 11rem;
+
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .thumbnail-container {
+    width: 100%;
+  }
+}
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  aspect-ratio: 16 / 9;
+}
+
+/* 右侧信息区容器 */
+.info-container {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 视频标题 */
+.video-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #1f2937;
+  transition: color 0.3s ease;
+  margin-bottom: 0.5rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  /* 【新增】设置最小高度以容纳3行文本 */
+  min-height: 81px; /* 1.125rem * 1.5 (line-height) * 3 (lines) */
+}
+.video-title:hover {
+  color: #3b82f6;
+}
+
+/* 视频简介样式 */
+.video-description {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.6;
+  color: #6b7280;
+  margin-bottom: 0.75rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  /* 【新增】设置最小高度以容纳3行文本 */
+  min-height: 68px; /* 0.875rem * 16 * 1.6 (line-height) * 3 (lines) -> ~67.2px */
+}
+
+/* 数据统计行 */
+.stats-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem; /* 6px */
+}
+
+/* 作者与时间行 */
+.author-info {
+  margin-top: auto; /* 将其推至容器底部 */
+  padding-top: 0.75rem;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.875rem;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* 两端对齐 */
+}
+.author-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.3s ease;
+  color: #6b7280;
+}
+.author-name:hover {
+  color: #ec4899;
+}
+
+/* 【新增】模态框/灯箱样式 */
+.image-modal-overlay {
+  position: fixed; /* 固定定位，覆盖整个视口 */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.75); /* 半透明黑色背景 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* 确保在最上层 */
+  cursor: pointer; /* 提示用户可以点击背景关闭 */
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 【核心修改①】: 为内容区设定一个明确的、响应式的“画框”尺寸 */
+.image-modal-content {
+  position: relative;
+  width: 85vw; /* 画框宽度为视口宽度的85% */
+  height: 85vh; /* 画框高度为视口高度的85% */
+  max-width: 1600px; /* 在超大屏幕上，最大宽度不超过1600px */
+  max-height: 900px; /* 在超高屏幕上，最大高度不超过900px */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: default;
+}
+
+/* 【核心修改②】: 让图片充满画框，并保持自身比例 */
+.image-modal-img {
+  display: block;
+  max-width: 100%; /* 图片最大宽度是画框的100% */
+  max-height: 100%; /* 图片最大高度是画框的100% */
+  width: auto; /* 宽度自适应 */
+  height: auto; /* 高度自适应 */
+  object-fit: contain; /* 这是关键！图片会缩放以适应容器，同时保持宽高比 */
+  border-radius: 4px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.image-modal-close-button {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  width: 36px;
+  height: 36px;
+  background-color: white;
+  border-radius: 50%;
+  border: none;
+  font-size: 24px;
+  line-height: 36px;
+  text-align: center;
+  color: #333;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.image-modal-close-button:hover {
+  transform: scale(1.1);
+}

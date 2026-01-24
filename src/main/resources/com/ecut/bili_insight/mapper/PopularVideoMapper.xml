@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecut.bili_insight.mapper.PopularVideoMapper">
+
+    <delete id="truncateTable">
+        TRUNCATE TABLE popular_videos;
+    </delete>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO popular_videos (bvid, aid, title, author, author_mid, publish_date, duration, view_count,
+        like_count, coin_count, favorite_count, share_count, danmaku_count, description, cover_url)
+        VALUES
+        <foreach collection="videoList" item="video" separator=",">
+            (#{video.bvid}, #{video.aid}, #{video.title}, #{video.author}, #{video.authorMid}, #{video.publishDate}, #{video.duration},
+            #{video.viewCount}, #{video.likeCount}, #{video.coinCount}, #{video.favoriteCount}, #{video.shareCount},
+            #{video.danmakuCount}, #{video.description}, #{video.coverUrl})
+        </foreach>
+    </insert>
+
+    <select id="findAll" resultType="com.ecut.bili_insight.entity.VideoInfo">
+        SELECT * FROM popular_videos ORDER BY view_count DESC;
+    </select>
+</mapper>

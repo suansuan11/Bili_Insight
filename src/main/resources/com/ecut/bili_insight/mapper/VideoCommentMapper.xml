@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecut.bili_insight.mapper.VideoCommentMapper">
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO video_comment (task_id, comment_id, content, author, author_mid, like_count,
+                                   reply_count, post_time, sentiment_score, sentiment_label, aspect)
+        VALUES
+        <foreach collection="comments" item="comment" separator=",">
+            (#{comment.taskId}, #{comment.commentId}, #{comment.content}, #{comment.author},
+             #{comment.authorMid}, #{comment.likeCount}, #{comment.replyCount}, #{comment.postTime},
+             #{comment.sentimentScore}, #{comment.sentimentLabel}, #{comment.aspect})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            like_count = VALUES(like_count),
+            reply_count = VALUES(reply_count)
+    </insert>
+
+    <select id="findByTaskId" resultType="com.ecut.bili_insight.entity.VideoComment">
+        SELECT task_id AS taskId, comment_id AS commentId, content, author, author_mid AS authorMid,
+               like_count AS likeCount, reply_count AS replyCount, post_time AS postTime,
+               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel, aspect
+        FROM video_comment
+        WHERE task_id = #{taskId}
+        ORDER BY like_count DESC
+    </select>
+
+    <select id="findByTaskIdAndSentiment" resultType="com.ecut.bili_insight.entity.VideoComment">
+        SELECT task_id AS taskId, comment_id AS commentId, content, author, author_mid AS authorMid,
+               like_count AS likeCount, reply_count AS replyCount, post_time AS postTime,
+               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel, aspect
+        FROM video_comment
+        WHERE task_id = #{taskId} AND sentiment_label = #{sentimentLabel}
+        ORDER BY like_count DESC
+    </select>
+
+    <select id="findByTaskIdAndAspect" resultType="com.ecut.bili_insight.entity.VideoComment">
+        SELECT task_id AS taskId, comment_id AS commentId, content, author, author_mid AS authorMid,
+               like_count AS likeCount, reply_count AS replyCount, post_time AS postTime,
+               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel, aspect
+        FROM video_comment
+        WHERE task_id = #{taskId} AND aspect = #{aspect}
+        ORDER BY like_count DESC
+    </select>
+
+    <select id="countByTaskId" resultType="int">
+        SELECT COUNT(*) FROM video_comment WHERE task_id = #{taskId}
+    </select>
+
+</mapper>

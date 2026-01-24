@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilibili扫码登录测试页面</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
+    <style>
+        /* CSS样式保持不变，此处省略 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f7f7f7;
+        }
+        #app {
+            text-align: center;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            background-color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 320px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #00a1d6;
+            color: white;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            background-color: #00b5e5;
+        }
+        #qrContainer {
+            margin-top: 20px;
+        }
+        /* 2. 【修改】为二维码的容器设置大小 */
+        #qrImageContainer {
+            width: 200px;
+            height: 200px;
+            border: 1px solid #eee;
+            display: flex; /* 使用flex布局让生成的img居中 */
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto;
+        }
+        #qrImageContainer img {
+            width: 100%;
+            height: 100%;
+        }
+        #statusText {
+            font-weight: bold;
+            margin-top: 15px;
+            min-height: 24px;
+        }
+        #resultMessage {
+            margin-top: 15px;
+            word-wrap: break-word;
+            text-align: left;
+            padding: 10px;
+            background-color: #e8f5e9;
+            border-radius: 4px;
+        }
+        .error { color: #d32f2f; }
+        .success { color: #388e3c; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <h2>Bilibili 扫码登录测试</h2>
+    <button id="startButton">点击生成二维码</button>
+
+    <div id="qrContainer" style="display: none;">
+        <div id="qrImageContainer"></div>
+        <p id="statusText">请使用B站手机客户端扫描</p>
+    </div>
+
+    <div id="resultMessage" style="display: none;"></div>
+</div>
+
+<script>
+    const startButton = document.getElementById('startButton');
+    const qrContainer = document.getElementById('qrContainer');
+    // 4. 【修改】获取新的div容器
+    const qrImageContainer = document.getElementById('qrImageContainer');
+    const statusText = document.getElementById('statusText');
+    const resultMessage = document.getElementById('resultMessage');
+
+    let qrCodeKey = '';
+    let pollInterval = null;
+
+    startButton.addEventListener('click', startLogin);
+
+    async function startLogin() {
+        resetState();
+        startButton.disabled = true;
+        startButton.textContent = '正在生成...';
+
+        try {
+            // 请求后端的逻辑完全不变
+            const response = await fetch('/api/bili/qrcode/generate');
+            if (!response.ok) throw new Error('服务器响应错误');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                const qrCodeContent = data.url; // 这是二维码的“内容”
+                qrCodeKey = data.qrcode_key;
+
+                // 5. 【核心修改】使用JS库将内容生成二维码图片
+                generateQRCode(qrCodeContent);
+
+                qrContainer.style.display = 'block';
+                startButton.style.display = 'none';
+                startPolling();
+            } else {
+                handleError(data.message || '生成二维码失败');
+            }
+        } catch (error) {
+            handleError('请求二维码时发生网络错误: ' + error.message);
+        }
+    }
+
+    // 6. 【新增】一个专门用于生成二维码的函数
+    function generateQRCode(text) {
+        try {
+            // 清空旧的二维码
+            qrImageContainer.innerHTML = '';
+            // 创建二维码对象
+            // 参数(typeNumber, errorCorrectionLevel)
+            // typeNumber=0 表示自动计算大小
+            // errorCorrectionLevel='M' 表示中等纠错水平
+            const qr = qrcode(0, 'M');
+            qr.addData(text);
+            qr.make();
+            // createImgTag(cellSize, margin)
+            // 创建一个<img>标签并插入到容器中
+            qrImageContainer.innerHTML = qr.createImgTag(5, 4);
+        } catch (e) {
+            handleError("在前端生成二维码时失败: " + e.message);
+        }
+    }
+
+    // 后续的轮询、状态更新、错误处理等函数完全不变...
+    function startPolling() { /* ...省略不变的代码... */ }
+    function updateStatus(pollData) { /* ...省略不变的代码... */ }
+    function handleError(message) { /* ...省略不变的代码... */ }
+    function stopPolling() { /* ...省略不变的代码... */ }
+    function resetState() { /* ...省略不变的代码... */ }
+
+    // --- 为了代码完整性，将不变的函数粘贴于此 ---
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async () => {
+            if (!qrCodeKey) return;
+            try {
+                const response = await fetch(`/api/bili/qrcode/poll?key=${qrCodeKey}`);
+                const data = await response.json();
+                updateStatus(data);
+            } catch (error) {
+                handleError('轮询状态时发生网络错误');
+            }
+        }, 2000);
+    }
+
+    function updateStatus(pollData) {
+        if (!pollData || typeof pollData.code === 'undefined') return;
+        switch (pollData.code) {
+            case 0:
+                stopPolling();
+                statusText.textContent = '登录成功！';
+                statusText.className = 'success';
+                resultMessage.style.display = 'block';
+                resultMessage.className = 'success';
+                const cookiesText = JSON.stringify(pollData.cookies, null, 2);
+                resultMessage.innerHTML = `<strong>✅ 登录成功!</strong><pre>${cookiesText}</pre>`;
+                break;
+            case 86090:
+                statusText.textContent = '已扫描，请在手机上点击确认...';
+                break;
+            case 86101:
+                statusText.textContent = '请使用B站手机客户端扫描';
+                break;
+            case 86038:
+                handleError('二维码已过期，请重试');
+                break;
+            default:
+                handleError(`未知错误: ${pollData.message || '请重试'}`);
+                break;
+        }
+    }
+
+    function handleError(message) {
+        stopPolling();
+        resultMessage.style.display = 'block';
+        resultMessage.className = 'error';
+        resultMessage.textContent = `❌ 错误: ${message}`;
+        startButton.style.display = 'block';
+        startButton.disabled = false;
+        startButton.textContent = '重新生成二维码';
+        qrContainer.style.display = 'none';
+    }
+
+    function stopPolling() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+
+    function resetState() {
+        stopPolling();
+        startButton.disabled = false;
+        startButton.textContent = '点击生成二维码';
+        qrContainer.style.display = 'none';
+        resultMessage.style.display = 'none';
+        qrImageContainer.innerHTML = '';
+        qrCodeKey = '';
+    }
+</script>
+
+</body>
+</html>

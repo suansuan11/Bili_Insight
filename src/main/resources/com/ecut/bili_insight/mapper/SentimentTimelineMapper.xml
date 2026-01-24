@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecut.bili_insight.mapper.SentimentTimelineMapper">
+
+    <insert id="insertOrUpdate" parameterType="com.ecut.bili_insight.entity.SentimentTimeline">
+        INSERT INTO sentiment_timeline (task_id, timeline_json, aspect_sentiment_json, created_at)
+        VALUES (#{taskId}, #{timelineJson}, #{aspectSentimentJson}, NOW())
+        ON DUPLICATE KEY UPDATE
+            timeline_json = VALUES(timeline_json),
+            aspect_sentiment_json = VALUES(aspect_sentiment_json),
+            created_at = NOW()
+    </insert>
+
+    <select id="findByTaskId" resultType="com.ecut.bili_insight.entity.SentimentTimeline">
+        SELECT id, task_id AS taskId, timeline_json AS timelineJson,
+               aspect_sentiment_json AS aspectSentimentJson, created_at AS createdAt
+        FROM sentiment_timeline
+        WHERE task_id = #{taskId}
+    </select>
+
+    <delete id="deleteByTaskId">
+        DELETE FROM sentiment_timeline WHERE task_id = #{taskId}
+    </delete>
+
+</mapper>
