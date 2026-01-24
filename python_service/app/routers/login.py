@@ -104,3 +104,67 @@ async def check_qr_status(qrcode_key: str, auto_save: bool = True):
             status_code=500,
             detail=f"检查状态失败: {str(e)}"
         )
+
+
+@router.get("/current_user")
+async def get_current_user():
+    """
+    获取当前登录用户信息
+    
+    Returns:
+        用户信息或401未登录
+    """
+    try:
+        cred_manager = get_credential_manager()
+        credential = cred_manager.get_credential()
+        
+        if not credential:
+            raise HTTPException(status_code=401, detail="未登录")
+            
+        # 使用凭证获取用户信息
+        from bilibili_api import user
+        try:
+            # 获取自己的信息需要用 Credential 实例
+            # 这里简单通过 REST API 验证或者让前端展示已登录状态
+            # 为了获取头像昵称，我们需要调用 B站 API
+            # 使用 bilibili_api 的 user.get_self_info (需要Credential)
+            
+            # 临时构造 Credential 对象
+            from bilibili_api import Credential
+            creds = Credential(
+                sessdata=credential.sessdata, 
+                bili_jct=credential.bili_jct, 
+                buvid3=credential.buvid3
+            )
+            
+            # 使用 get_self_info() 实际上是获取当前登录者的导航信息
+            # 但 bilibili_api 的 user 模块主要针对特定 UID
+            # 我们可以用 verify() 来检查有效性并获取信息
+            if await creds.check_valid():
+                # 获取导航栏信息 (包含头像昵称)
+                from bilibili_api import client
+                # 直接调用 API: https://api.bilibili.com/x/web-interface/nav
+                resp = await client.request("GET", "https://api.bilibili.com/x/web-interface/nav", credential=creds)
+                data = resp.get("data", {})
+                
+                return {
+                    "is_login": True,
+                    "uname": data.get("uname"),
+                    "face": data.get("face"),
+                    "level_info": data.get("level_info", {}),
+                    "vip_label": data.get("vip_label", {}),
+                    "wbi_img": data.get("wbi_img", {}) 
+                }
+            else:
+                return {"is_login": False}
+                
+        except Exception as api_err:
+            print(f"Bilibili API Error: {api_err}")
+            # sessdata可能过期
+            return {"is_login": False}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Check login error: {e}")
+        return {"is_login": False}

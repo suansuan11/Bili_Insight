@@ -87,6 +87,7 @@ class BilibiliService:
                     'favorite_count': item['stat'].get('favorite', 0),
                     'share_count': item['stat'].get('share', 0),
                     'danmaku_count': item['stat'].get('danmaku', 0),
+                    'comment_count': item['stat'].get('reply', 0),  # 获取评论数
                     'description': item.get('desc', ''),
                     'cover_url': item.get('pic', '')
                 }
@@ -137,10 +138,14 @@ class BilibiliService:
                         'author': reply['member']['uname'],
                         'gender': reply['member']['sex'],
                         'content': reply['content']['message'],
-                        'like': reply.get('like', 0),
+                        'like': int(reply.get('like', 0)),  # Ensure int
                         'reply_id': reply.get('rpid'),
                         'create_time': reply.get('ctime', 0)
                     }
+                    # Debug print for first few items
+                    if len(all_comments) < 3:
+                        print(f"[Debug] Comment Like: {comment_data['like']}")
+                    
                     all_comments.append(comment_data)
 
                     if len(all_comments) >= max_count:
@@ -188,7 +193,7 @@ class BilibiliService:
                 if dm.text:
                     danmaku_data.append({
                         'content': dm.text,
-                        'dm_time': dm.dm_time
+                        'dm_time': float(dm.dm_time) # Ensure float seconds
                     })
 
             print(f"共获取 {len(danmaku_data)} 条弹幕")

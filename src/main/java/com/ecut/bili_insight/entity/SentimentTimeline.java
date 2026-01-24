@@ -1,7 +1,6 @@
 package com.ecut.bili_insight.entity;
 
 import lombok.Data;
-import java.math.BigDecimal;
 
 /**
  * 情绪时间轴实体类
@@ -24,17 +23,12 @@ public class SentimentTimeline {
     private Long taskId;
 
     /**
-     * 时间点(秒)
+     * 情绪时间轴JSON数据
      */
-    private BigDecimal timePoint;
+    private String timelineJson;
 
     /**
-     * 平均情感值 (0-1)
+     * 切面情感分析JSON数据
      */
-    private BigDecimal avgSentiment;
-
-    /**
-     * 弹幕数量
-     */
-    private Integer danmakuCount;
+    private String aspectSentimentJson;
 }

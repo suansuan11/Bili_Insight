@@ -44,17 +44,21 @@ async def fetch_popular_videos_task_async(pages: int = 1):
 
         # 保存到数据库
         success_count = 0
+        first_error = None
         for video in total_videos:
             try:
                 db_repo.insert_or_update_popular_video(video)
                 success_count += 1
             except Exception as e:
+                if not first_error:
+                    first_error = str(e)
                 print(f"保存视频 {video.get('bvid')} 失败: {e}")
 
         _last_fetch_result = {
-            "status": "success",
+            "status": "success" if success_count == len(total_videos) else "partial_success",
             "count": success_count,
-            "total": len(total_videos)
+            "total": len(total_videos),
+            "first_error": first_error
         }
         print(f"热门视频爬取完成，成功保存 {success_count}/{len(total_videos)} 个视频")
 

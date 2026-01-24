@@ -36,6 +36,7 @@ export async function getPopularVideos(): Promise<VideoInfo[]> {
       favoriteCount: rawVideo.favorite_count,
       shareCount: rawVideo.share_count,
       danmakuCount: rawVideo.danmaku_count,
+      commentCount: rawVideo.comment_count,
       description: rawVideo.description,
       coverUrl: rawVideo.cover_url,
       scrapedAt: rawVideo.scrapedAt,

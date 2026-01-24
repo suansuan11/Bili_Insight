@@ -70,6 +70,9 @@ public class VideoInfo {
     @JsonProperty("danmaku_count")
     private int danmakuCount;
 
+    @JsonProperty("comment_count")
+    private int commentCount;
+
     @JsonProperty("description")
     private String description;
 

@@ -1,5 +1,6 @@
 package com.ecut.bili_insight.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -11,6 +12,7 @@ public class AnalysisTask {
     /**
      * 任务ID
      */
+    @JsonProperty("id")
     private Long taskId;
 
     /**

@@ -81,3 +81,39 @@ class ScraperService:
         except Exception as e:
             print(f"获取弹幕失败: {e}")
             return []
+    async def get_video_info_async(self, bvid: str) -> Optional[Dict]:
+        """
+        获取视频信息（异步）
+        """
+        try:
+            return await self.bili_service.get_video_info(bvid)
+        except Exception as e:
+            print(f"获取视频信息失败: {e}")
+            return None
+
+    async def get_comments_async(self, bvid: str, max_pages: int = 10) -> List[Dict]:
+        """
+        获取视频评论（异步）
+        """
+        try:
+            max_count = max_pages * 20
+            return await self.bili_service.get_comments(bvid, max_count)
+        except Exception as e:
+            print(f"获取评论失败: {e}")
+            return []
+
+    async def get_danmakus_async(self, bvid: str, sessdata: Optional[str] = None) -> List[Dict]:
+        """
+        获取视频弹幕（异步）
+        """
+        try:
+            if sessdata:
+                cred_manager = get_credential_manager()
+                temp_credential = cred_manager.get_credential(sessdata)
+                temp_service = BilibiliService(credential=temp_credential)
+                return await temp_service.get_danmakus(bvid)
+            
+            return await self.bili_service.get_danmakus(bvid)
+        except Exception as e:
+            print(f"获取弹幕失败: {e}")
+            return []

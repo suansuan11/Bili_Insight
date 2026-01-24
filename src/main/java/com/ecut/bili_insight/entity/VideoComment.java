@@ -60,6 +60,11 @@ public class VideoComment {
     private Integer replyCount;
 
     /**
+     * ABSA切面标签
+     */
+    private String aspect;
+
+    /**
      * 爬取时间
      */
     private LocalDateTime scrapedAt;

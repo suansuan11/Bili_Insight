@@ -49,14 +49,12 @@ public class DashboardController {
             stats.put("total_comments", totalComments != null ? totalComments : 0);
 
             // Average sentiment score
-            String avgSentimentSql = """
-                        SELECT AVG(CASE
-                            WHEN sentiment_label = 'POSITIVE' THEN 1.0
-                            WHEN sentiment_label = 'NEGATIVE' THEN -1.0
-                            ELSE 0
-                        END) as avg_sentiment
-                        FROM video_comment
-                    """;
+            String avgSentimentSql = "SELECT AVG(CASE " +
+                    "WHEN sentiment_label = 'POSITIVE' THEN 1.0 " +
+                    "WHEN sentiment_label = 'NEGATIVE' THEN -1.0 " +
+                    "ELSE 0 " +
+                    "END) as avg_sentiment " +
+                    "FROM video_comment";
             Double avgSentiment = jdbcTemplate.queryForObject(avgSentimentSql, Double.class);
             stats.put("avg_sentiment", avgSentiment != null ? avgSentiment : 0.0);
 
@@ -118,13 +116,11 @@ public class DashboardController {
     @GetMapping("/task-trend")
     public Result<List<Map<String, Object>>> getTaskTrend() {
         try {
-            String sql = """
-                        SELECT DATE(created_at) as date, COUNT(*) as count
-                        FROM analysis_task
-                        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                        GROUP BY DATE(created_at)
-                        ORDER BY date ASC
-                    """;
+            String sql = "SELECT DATE(created_at) as date, COUNT(*) as count " +
+                    "FROM analysis_task " +
+                    "WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) " +
+                    "GROUP BY DATE(created_at) " +
+                    "ORDER BY date ASC";
             List<Map<String, Object>> list = jdbcTemplate.queryForList(sql);
             return Result.success(list);
         } catch (Exception e) {

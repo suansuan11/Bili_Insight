@@ -45,7 +45,7 @@ class DatabaseRepository:
                 UPDATE analysis_task
                 SET progress = %s, current_step = %s, status = %s,
                     started_at = IF(started_at IS NULL AND %s = 'RUNNING', NOW(), started_at),
-                    completed_at = IF(%s IN ('SUCCESS', 'FAILED'), NOW(), completed_at)
+                    completed_at = IF(%s IN ('COMPLETED', 'FAILED'), NOW(), completed_at)
                 WHERE task_id = %s
                 """
                 cursor.execute(sql, (progress, current_step, status, status, status, task_id))
@@ -241,8 +241,8 @@ class DatabaseRepository:
                 INSERT INTO popular_videos
                 (bvid, aid, title, author, author_mid, publish_date, duration,
                  view_count, like_count, coin_count, favorite_count, share_count,
-                 danmaku_count, description, cover_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 danmaku_count, comment_count, description, cover_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
                     view_count = VALUES(view_count),
@@ -251,7 +251,8 @@ class DatabaseRepository:
                     favorite_count = VALUES(favorite_count),
                     share_count = VALUES(share_count),
                     danmaku_count = VALUES(danmaku_count),
-                    updated_at = CURRENT_TIMESTAMP
+                    comment_count = VALUES(comment_count),
+                    scraped_at = CURRENT_TIMESTAMP
                 """
 
                 # 兼容两种数据格式：B站API原始格式 和 爬虫脚本格式
@@ -265,6 +266,10 @@ class DatabaseRepository:
                     favorite_count = video_info.get('stat', {}).get('favorite')
                     share_count = video_info.get('stat', {}).get('share')
                     danmaku_count = video_info.get('stat', {}).get('danmaku')
+                    comment_count = video_info.get('comment_count', 0) # Already extracted in service
+                    if not comment_count: # Fallback if direct not available (raw api response)
+                         comment_count = video_info.get('stat', {}).get('reply', 0)
+                    
                     cover_url = video_info.get('pic')
                     description = video_info.get('desc')
                     publish_date = video_info.get('pubdate')
@@ -278,6 +283,7 @@ class DatabaseRepository:
                     favorite_count = video_info.get('favorite_count')
                     share_count = video_info.get('share_count')
                     danmaku_count = video_info.get('danmaku_count')
+                    comment_count = video_info.get('comment_count')
                     cover_url = video_info.get('cover_url')
                     description = video_info.get('description')
                     publish_date = video_info.get('publish_date')
@@ -296,6 +302,7 @@ class DatabaseRepository:
                     favorite_count,
                     share_count,
                     danmaku_count,
+                    comment_count,
                     description,
                     cover_url
                 ))
@@ -322,10 +329,10 @@ class DatabaseRepository:
             try:
                 sql = """
                 SELECT bvid, title, author, cover_url, view_count, like_count,
-                       coin_count, favorite_count, share_count, comment_count,
-                       danmaku_count, publish_time, created_at, updated_at
+                       coin_count, favorite_count, share_count,
+                       danmaku_count, comment_count, publish_date, scraped_at as created_at
                 FROM popular_videos
-                ORDER BY view_count DESC, updated_at DESC
+                ORDER BY view_count DESC, scraped_at DESC
                 LIMIT %s
                 """
                 cursor.execute(sql, (limit,))

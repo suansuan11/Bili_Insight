@@ -19,9 +19,9 @@ timeline_generator = TimelineGenerator()
 db_repo = DatabaseRepository()
 
 
-def analyze_video_task(task_id: int, bvid: str, sessdata: str = None):
+async def analyze_video_task(task_id: int, bvid: str, sessdata: str = None):
     """
-    视频分析后台任务
+    视频分析后台任务 (异步)
 
     Args:
         task_id: 任务ID
@@ -31,14 +31,15 @@ def analyze_video_task(task_id: int, bvid: str, sessdata: str = None):
     try:
         # 步骤1: 爬取视频信息 (10%)
         db_repo.update_task_progress(task_id, 10, "正在获取视频信息...")
-        video_info = scraper.get_video_info(bvid)
+        video_info = await scraper.get_video_info_async(bvid)
         if not video_info:
             db_repo.update_task_status(task_id, "FAILED", "无法获取视频信息")
             return
 
         # 步骤2: 爬取评论 (30%)
-        db_repo.update_task_progress(task_id, 30, "正在爬取评论数据...")
-        comments = scraper.get_comments(bvid, max_pages=10)
+        db_repo.update_task_progress(task_id, 30, "正在爬取评论数据(TOP 10000)...")
+        # 增加爬取数量：100页 -> 500页 (约10000条)，覆盖绝大多数视频
+        comments = await scraper.get_comments_async(bvid, max_pages=500)
 
         # 空值保护
         if comments is None:
@@ -58,7 +59,7 @@ def analyze_video_task(task_id: int, bvid: str, sessdata: str = None):
 
         # 步骤4: 爬取弹幕 (70%)
         db_repo.update_task_progress(task_id, 70, "正在爬取弹幕数据...")
-        danmakus = scraper.get_danmakus_sync(bvid, sessdata)
+        danmakus = await scraper.get_danmakus_async(bvid, sessdata)
 
         # 空值保护
         if danmakus is None:
@@ -89,6 +90,7 @@ def analyze_video_task(task_id: int, bvid: str, sessdata: str = None):
             db_repo.batch_insert_timeline(task_id, bvid, timeline_data)
 
         # 步骤7: 完成 (100%)
+        # 注意：状态一定要用 COMPLETED
         db_repo.update_task_progress(task_id, 100, "分析完成", status="COMPLETED")
 
         print(f"任务 {task_id} 完成: BVID={bvid}, 评论数={len(comments)}, 弹幕数={len(danmakus)}")

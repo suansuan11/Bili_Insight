@@ -5,8 +5,8 @@
         <h1 class="page-title">热门视频榜单</h1>
         <p class="page-subtitle">
           Bilibili 当前最火热的视频内容
-          <span v-if="videos.length > 0 && videos[0].scrapedAt">
-            | 数据截至: {{ videos[0].scrapedAt.slice(0, 16) }}
+          <span v-if="latestScrapedTime">
+            | 数据截至: {{ latestScrapedTime.slice(0, 16) }}
           </span>
         </p>
       </header>
@@ -53,10 +53,14 @@
                 {{ video.description }}
               </p>
               <p v-else class="video-description invisible">占位</p>
-              <div class="stats-container">
-                <span class="stat-item">👁 {{ formatNumber(video.viewCount) }}</span>
-                <span class="stat-item">💬 {{ formatNumber(video.danmakuCount) }}</span>
-                <span class="stat-item">👍 {{ formatNumber(video.likeCount) }}</span>
+              <div class="stats-container grid grid-cols-4 gap-2 mt-2 text-sm text-gray-600">
+                <span class="stat-item flex items-center" title="播放量"><el-icon class="mr-1"><View /></el-icon> {{ formatNumber(video.viewCount) }}</span>
+                <span class="stat-item flex items-center" title="弹幕数"><el-icon class="mr-1"><ChatLineRound /></el-icon> {{ formatNumber(video.danmakuCount) }}</span>
+                <span class="stat-item flex items-center" title="评论数"><el-icon class="mr-1"><Comment /></el-icon> {{ formatNumber(video.commentCount) }}</span>
+                <span class="stat-item flex items-center" title="点赞数"><el-icon class="mr-1"><Pointer /></el-icon> {{ formatNumber(video.likeCount) }}</span>
+                <span class="stat-item flex items-center" title="投币数"><el-icon class="mr-1"><Coin /></el-icon> {{ formatNumber(video.coinCount) }}</span>
+                <span class="stat-item flex items-center" title="收藏数"><el-icon class="mr-1"><Star /></el-icon> {{ formatNumber(video.favoriteCount) }}</span>
+                <span class="stat-item flex items-center" title="分享数"><el-icon class="mr-1"><Share /></el-icon> {{ formatNumber(video.shareCount) }}</span>
               </div>
             </div>
             <div class="author-info flex justify-between items-center w-full">
@@ -96,9 +100,21 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPopularVideos } from '@/api/popular'
 import type { VideoInfo } from '@/types/video'
+import { View, ChatLineRound, Pointer, Coin, Star, Share, Comment } from '@element-plus/icons-vue'
+import { computed } from 'vue'
 
 const router = useRouter()
 const videos = ref<VideoInfo[]>([])
+
+const latestScrapedTime = computed(() => {
+  if (videos.value.length === 0) return ''
+  // Find the max date string
+  const times = videos.value
+    .map(v => v.scrapedAt)
+    .filter(t => t)
+    .sort()
+  return times.length > 0 ? times[times.length - 1] : ''
+})
 
 const goToAnalyze = (bvid: string) => {
   router.push({

@@ -103,16 +103,49 @@
         <template #header>
           <span class="font-bold text-gray-700">Quick Actions</span>
         </template>
-        <div class="flex flex-col gap-4 py-4">
-          <el-button type="primary" size="large" @click="$router.push('/analysis')">
-            <el-icon class="mr-2"><Plus /></el-icon> New Analysis
-          </el-button>
-          <el-button type="success" size="large" @click="$router.push('/popular')">
-            <el-icon class="mr-2"><Compass /></el-icon> Explore Popular
-          </el-button>
-          <el-button type="warning" size="large" plain>
-            <el-icon class="mr-2"><Download /></el-icon> Export Global Report
-          </el-button>
+        <div class="grid grid-cols-2 gap-4 py-2">
+          <!-- New Analysis -->
+          <div 
+            class="action-card bg-indigo-50 hover:bg-indigo-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group"
+            @click="$router.push('/analysis')"
+          >
+            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-indigo-600 mb-3 shadow-sm group-hover:scale-110 transition-transform">
+              <el-icon :size="24"><Plus /></el-icon>
+            </div>
+            <h3 class="font-semibold text-gray-700 mb-1">New Analysis</h3>
+            <p class="text-xs text-gray-500">Analyze a specific video</p>
+          </div>
+
+          <!-- Explore Popular -->
+          <div 
+            class="action-card bg-emerald-50 hover:bg-emerald-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group"
+            @click="triggerPopularScrape"
+            v-loading="isScraping"
+          >
+            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-600 mb-3 shadow-sm group-hover:scale-110 transition-transform">
+              <el-icon :size="24"><Compass /></el-icon>
+            </div>
+            <h3 class="font-semibold text-gray-700 mb-1">Fetch Popular</h3>
+            <p class="text-xs text-gray-500">Update hot video data</p>
+          </div>
+
+          <!-- Analysis Queue (Placeholder) -->
+          <div class="action-card bg-blue-50 hover:bg-blue-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group opacity-60">
+             <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 mb-3 shadow-sm">
+              <el-icon :size="24"><VideoPlay /></el-icon>
+            </div>
+            <h3 class="font-semibold text-gray-700 mb-1">Queue</h3>
+            <p class="text-xs text-gray-500">Coming soon</p>
+          </div>
+
+          <!-- Export Report -->
+          <div class="action-card bg-amber-50 hover:bg-amber-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group">
+             <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-amber-500 mb-3 shadow-sm group-hover:scale-110 transition-transform">
+              <el-icon :size="24"><Download /></el-icon>
+            </div>
+            <h3 class="font-semibold text-gray-700 mb-1">Export</h3>
+            <p class="text-xs text-gray-500">Download report</p>
+          </div>
         </div>
       </el-card>
     </div>
@@ -125,10 +158,28 @@ import { VideoPlay, ChatLineSquare, Star, DocumentChecked, Loading, Plus, Compas
 import { getDashboardStats, getSentimentDistribution, getTopAspects, getTaskTrend, type DashboardStats } from '@/api/dashboard'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import axios from 'axios'
 
 const isLoading = ref(false)
+const isScraping = ref(false)
 const trendChartRef = ref<HTMLElement | null>(null)
 const sentimentChartRef = ref<HTMLElement | null>(null)
+
+const triggerPopularScrape = async () => {
+  if (isScraping.value) return
+  isScraping.value = true
+  ElMessage.info('Started fetching popular videos...')
+  try {
+    // Assuming Python service is on 8001
+    await axios.post('http://localhost:8001/api/popular/fetch?pages=5')
+    ElMessage.success('Popular videos fetch task started!')
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('Failed to start fetch task. Is Python service running?')
+  } finally {
+    setTimeout(() => { isScraping.value = false }, 2000) // Reset loading state after a delay
+  }
+}
 
 const stats = ref<Partial<DashboardStats>>({
   total_videos: 0,

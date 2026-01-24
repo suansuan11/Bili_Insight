@@ -16,6 +16,7 @@ export interface RawVideoInfo {
   favorite_count: number
   share_count: number
   danmaku_count: number
+  comment_count: number
   description: string
   cover_url: string
   scrapedAt: string
@@ -39,6 +40,7 @@ export interface VideoInfo {
   favoriteCount: number
   shareCount: number
   danmakuCount: number
+  commentCount: number
   description: string
   coverUrl: string
   scrapedAt: string

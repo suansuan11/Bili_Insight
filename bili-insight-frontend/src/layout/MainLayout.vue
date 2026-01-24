@@ -113,11 +113,21 @@ import { Odometer, TrendCharts, DataAnalysis, Setting } from '@element-plus/icon
 }
 
 .main-content-container {
-  background-color: #f3f4f6; /* Gray-100 for better contrast against white sidebar */
-  border-radius: var(--radius-2xl); /* Round all corners for consistent floating card look */
-  overflow: hidden;
-  margin: 16px 16px 16px 0; /* Increased margin for better floating effect */
+  background-color: #f3f4f6;
+  border-radius: var(--radius-2xl);
+  overflow: hidden; /* This might be cutting off the button, but 'auto' is better for main content scrolling */
+  overflow-y: auto;
+  margin: 16px; /* Uniform margin */
   box-shadow: -4px 0 20px rgba(0,0,0,0.03);
+  position: relative; /* Ensure child absolute positioning relates to this */
+}
+
+/* Fix for back-to-top button if it exists in Element Plus components */
+:deep(.el-backtop) {
+  position: absolute;
+  bottom: 40px;
+  right: 40px;
+  z-index: 100;
 }
 
 .fade-enter-active,

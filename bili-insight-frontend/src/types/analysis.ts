@@ -12,23 +12,35 @@ export interface AnalysisTask {
 }
 
 export interface VideoComment {
-    rpid: number
-    oid: number
-    message: string
-    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
-    aspect: string
+    commentId: number
+    taskId: number
+    bvid: string
+    // content maps to 'message' conceptually
+    content: string
+    // sentimentLabel maps to 'sentiment'
+    sentimentLabel: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+    sentimentScore: number
+    aspect?: string
+    author?: string
+    likeCount?: number
 }
 
 export interface VideoDanmaku {
-    dmid: string
+    danmakuId: number
+    taskId: number
+    bvid: string
     content: string
-    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
-    timestamp: number
+    sentimentLabel: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+    sentimentScore: number
+    dmTime: number
 }
 
 export interface SentimentTimeline {
     taskId: number
-    timelineData: string // JSON string, needs parsing in frontend component
+    timelineJson: string
+    aspectSentimentJson: string
+    // Backward compatibility if needed, but we should rely on timelineJson
+    timelineData?: string
 }
 
 export interface AnalysisResult {
