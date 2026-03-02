@@ -156,9 +156,9 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { VideoPlay, ChatLineSquare, Star, DocumentChecked, Loading, Plus, Compass, Download } from '@element-plus/icons-vue'
 import { getDashboardStats, getSentimentDistribution, getTopAspects, getTaskTrend, type DashboardStats } from '@/api/dashboard'
+import { triggerPopularFetch as triggerPopularFetchApi } from '@/api/popular'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import axios from 'axios'
 
 const isLoading = ref(false)
 const isScraping = ref(false)
@@ -170,9 +170,12 @@ const triggerPopularScrape = async () => {
   isScraping.value = true
   ElMessage.info('Started fetching popular videos...')
   try {
-    // Assuming Python service is on 8001
-    await axios.post('http://localhost:8001/api/popular/fetch?pages=5')
-    ElMessage.success('Popular videos fetch task started!')
+    const response = await triggerPopularFetchApi()
+    if (response.code === 0) {
+      ElMessage.success('Popular videos fetch task started!')
+    } else {
+      ElMessage.error(response.message || 'Failed to start fetch task')
+    }
   } catch (e) {
     console.error(e)
     ElMessage.error('Failed to start fetch task. Is Python service running?')

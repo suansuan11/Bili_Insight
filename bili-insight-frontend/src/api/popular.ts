@@ -46,3 +46,8 @@ export async function getPopularVideos(): Promise<VideoInfo[]> {
   return formattedVideos
 }
 
+
+
+export async function triggerPopularFetch(): Promise<ApiResponse<{ status: string; message: string }>> {
+  return request.post('/insight/popular-videos/refresh')
+}

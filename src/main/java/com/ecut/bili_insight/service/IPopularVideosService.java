@@ -15,4 +15,9 @@ public interface IPopularVideosService {
      * @return 热门视频列表
      */
     List<VideoInfo> getCurrentPopularVideos();
+
+    /**
+     * 触发Python服务后台抓取热门视频
+     */
+    void triggerPopularFetch();
 }

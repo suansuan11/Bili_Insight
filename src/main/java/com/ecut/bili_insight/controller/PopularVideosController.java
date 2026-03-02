@@ -8,12 +8,13 @@ import com.ecut.bili_insight.service.IPopularVideosService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 
 @RestController
@@ -27,6 +28,25 @@ public class PopularVideosController {
     @Autowired
     public PopularVideosController(IPopularVideosService popularVideosService) {
         this.popularVideosService = popularVideosService;
+    }
+
+
+    /**
+     * 触发热门视频后台抓取任务
+     */
+    @PostMapping("/refresh")
+    public Result<Map<String, Object>> triggerRefresh() {
+        logger.info("收到触发热门视频抓取任务请求");
+        try {
+            popularVideosService.triggerPopularFetch();
+            Map<String, Object> result = new HashMap<>();
+            result.put("status", "submitted");
+            result.put("message", "热门视频抓取任务已提交");
+            return Result.success(result);
+        } catch (Exception e) {
+            logger.error("触发热门视频抓取任务失败", e);
+            return Result.failed(ResultCode.FAILED, "触发热门视频抓取任务失败: " + e.getMessage());
+        }
     }
 
     /**

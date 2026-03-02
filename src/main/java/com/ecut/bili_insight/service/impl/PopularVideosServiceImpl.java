@@ -37,6 +37,11 @@ public class PopularVideosServiceImpl implements IPopularVideosService {
      */
     @Override
     public void refreshAndSavePopularVideos() throws Exception {
+        triggerPopularFetch();
+    }
+
+    @Override
+    public void triggerPopularFetch() {
         logger.info("触发Python服务异步爬取热门视频...");
 
         try {
@@ -54,6 +59,7 @@ public class PopularVideosServiceImpl implements IPopularVideosService {
             }
         } catch (Exception e) {
             logger.error("调用Python服务失败（不影响启动）: {}", e.getMessage());
+            throw new RuntimeException("调用Python热门抓取服务失败", e);
         }
     }
 
