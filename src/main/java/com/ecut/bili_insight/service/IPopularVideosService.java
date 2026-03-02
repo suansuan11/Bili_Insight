@@ -3,6 +3,7 @@ package com.ecut.bili_insight.service;
 import com.ecut.bili_insight.entity.VideoInfo;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IPopularVideosService {
     /**
@@ -20,4 +21,10 @@ public interface IPopularVideosService {
      * 触发Python服务后台抓取热门视频
      */
     void triggerPopularFetch();
+
+    /**
+     * 查询热门抓取任务状态
+     * @return Python服务返回的状态信息
+     */
+    Map<String, Object> getPopularFetchStatus();
 }

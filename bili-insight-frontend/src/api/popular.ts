@@ -4,7 +4,7 @@ import type { VideoInfo, RawVideoInfo } from '@/types/video'
 /**
  * 后端返回的统一响应体结构
  */
-interface ApiResponse<T> {
+export interface ApiResponse<T> {
   code: number
   message: string
   data: T
@@ -50,4 +50,20 @@ export async function getPopularVideos(): Promise<VideoInfo[]> {
 
 export async function triggerPopularFetch(): Promise<ApiResponse<{ status: string; message: string }>> {
   return request.post('/insight/popular-videos/refresh')
+}
+
+
+export interface PopularFetchStatus {
+  running: boolean
+  last_result: {
+    status: string
+    count?: number
+    total?: number
+    first_error?: string | null
+    error?: string
+  }
+}
+
+export async function getPopularFetchStatus(): Promise<ApiResponse<PopularFetchStatus>> {
+  return request.get('/insight/popular-videos/refresh/status')
 }

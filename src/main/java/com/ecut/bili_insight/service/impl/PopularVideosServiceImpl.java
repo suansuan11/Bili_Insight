@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PopularVideosServiceImpl implements IPopularVideosService {
@@ -60,6 +61,23 @@ public class PopularVideosServiceImpl implements IPopularVideosService {
         } catch (Exception e) {
             logger.error("调用Python服务失败（不影响启动）: {}", e.getMessage());
             throw new RuntimeException("调用Python热门抓取服务失败", e);
+        }
+    }
+
+
+    @Override
+    public Map<String, Object> getPopularFetchStatus() {
+        logger.debug("查询Python热门视频抓取状态");
+        try {
+            String url = pythonServiceUrl + "/api/popular/fetch/status";
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return response.getBody();
+            }
+            throw new RuntimeException("Python服务返回异常状态: " + response.getStatusCode());
+        } catch (Exception e) {
+            logger.error("查询Python热门抓取状态失败: {}", e.getMessage());
+            throw new RuntimeException("查询热门抓取状态失败", e);
         }
     }
 

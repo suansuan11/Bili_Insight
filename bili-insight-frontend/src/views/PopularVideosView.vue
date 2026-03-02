@@ -2,7 +2,16 @@
   <div class="popular-videos-page">
     <div class="popular-videos-container">
       <header class="page-header">
-        <h1 class="page-title">热门视频榜单</h1>
+        <div class="flex items-center justify-between gap-4">
+          <h1 class="page-title">热门视频榜单</h1>
+          <div class="flex items-center gap-2">
+            <el-tag :type="fetchStatus.running ? 'warning' : 'info'" effect="light">
+              {{ fetchStatus.running ? '抓取中' : '空闲' }}
+            </el-tag>
+            <el-button size="small" @click="refreshStatus">刷新状态</el-button>
+            <el-button type="primary" size="small" :loading="triggering" @click="triggerRefresh">刷新热门数据</el-button>
+          </div>
+        </div>
         <p class="page-subtitle">
           Bilibili 当前最火热的视频内容
           <span v-if="latestScrapedTime">
@@ -98,10 +107,11 @@
 import '@/assets/styles/popular-videos.css'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getPopularVideos } from '@/api/popular'
+import { getPopularVideos, triggerPopularFetch, getPopularFetchStatus } from '@/api/popular'
 import type { VideoInfo } from '@/types/video'
 import { View, ChatLineRound, Pointer, Coin, Star, Share, Comment } from '@element-plus/icons-vue'
 import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const videos = ref<VideoInfo[]>([])
@@ -125,6 +135,42 @@ const goToAnalyze = (bvid: string) => {
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 
+const triggering = ref(false)
+const fetchStatus = ref({
+  running: false,
+  last_result: { status: 'never_run' }
+})
+
+const refreshStatus = async () => {
+  try {
+    const response = await getPopularFetchStatus()
+    if (response.code === 0) {
+      fetchStatus.value = response.data
+    }
+  } catch (error) {
+    console.error('刷新抓取状态失败', error)
+  }
+}
+
+const triggerRefresh = async () => {
+  if (triggering.value) return
+  triggering.value = true
+  try {
+    const response = await triggerPopularFetch()
+    if (response.code === 0) {
+      ElMessage.success('已提交热门抓取任务')
+      await refreshStatus()
+    } else {
+      ElMessage.error(response.message || '提交抓取任务失败')
+    }
+  } catch (error) {
+    ElMessage.error('提交抓取任务失败，请检查后端服务')
+  } finally {
+    triggering.value = false
+  }
+}
+
+
 const fetchPopularVideos = async () => {
   isLoading.value = true
   error.value = null
@@ -140,7 +186,9 @@ const fetchPopularVideos = async () => {
   }
 }
 
-onMounted(fetchPopularVideos)
+onMounted(async () => {
+  await Promise.all([fetchPopularVideos(), refreshStatus()])
+})
 
 // 【新增】用于控制灯箱的状态
 const isModalVisible = ref(false)

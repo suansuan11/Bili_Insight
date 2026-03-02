@@ -49,6 +49,22 @@ public class PopularVideosController {
         }
     }
 
+
+    /**
+     * 查询热门视频抓取任务状态
+     */
+    @GetMapping("/refresh/status")
+    public Result<Map<String, Object>> getRefreshStatus() {
+        logger.debug("收到查询热门视频抓取状态请求");
+        try {
+            Map<String, Object> status = popularVideosService.getPopularFetchStatus();
+            return Result.success(status);
+        } catch (Exception e) {
+            logger.error("查询热门视频抓取状态失败", e);
+            return Result.failed(ResultCode.FAILED, "查询热门视频抓取状态失败: " + e.getMessage());
+        }
+    }
+
     /**
      * 获取当前存储在数据库中的热门视频列表
      * @return 热门视频列表
