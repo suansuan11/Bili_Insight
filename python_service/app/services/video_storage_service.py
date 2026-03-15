@@ -2,6 +2,7 @@
 视频数据存储服务
 负责将爬取的数据存入MySQL数据库，并进行情感分析
 """
+from ..config import settings
 import json
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -18,11 +19,11 @@ class VideoStorageService:
     def __init__(self):
         """初始化数据库连接"""
         self.db_config = {
-            'host': 'localhost',
-            'port': 3306,
-            'user': 'root',
-            'password': 'Liuyi325',
-            'database': 'bili_insight_db',
+            'host': settings.db_host,
+            'port': settings.db_port,
+            'user': settings.db_user,
+            'password': settings.db_password,
+            'database': settings.db_name,
             'charset': 'utf8mb4'
         }
 

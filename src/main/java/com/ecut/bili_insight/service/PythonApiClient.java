@@ -143,4 +143,35 @@ public class PythonApiClient {
             return "Unknown";
         }
     }
+
+    /**
+     * 获取B站登录二维码
+     * @return 包含二维码信息的JSON字符串
+     */
+    public String getLoginQrCode() {
+        String url = pythonServiceUrl + "/api/login/qrcode";
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            return response.getBody();
+        } catch (Exception e) {
+            logger.error("Error getting login QR code from Python service: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to get login QR code", e);
+        }
+    }
+
+    /**
+     * 轮询B站登录状态
+     * @param key 二维码对应的key
+     * @return 包含登录状态信息的JSON字符串
+     */
+    public String pollLoginStatus(String key) {
+        String url = pythonServiceUrl + "/api/login/status?key=" + key;
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            return response.getBody();
+        } catch (Exception e) {
+            logger.error("Error polling login status from Python service: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to poll login status", e);
+        }
+    }
 }

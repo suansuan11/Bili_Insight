@@ -1,33 +1,35 @@
 import axios from 'axios'
+import router from '@/router'
 
-// Create an axios instance
 const service = axios.create({
-    baseURL: '/', // Use proxy in development
-    timeout: 60000 // Request timeout
+    baseURL: '/',
+    timeout: 60000
 })
 
-// Request interceptor
 service.interceptors.request.use(
     config => {
-        // do something before request is sent
+        const token = localStorage.getItem('token')
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`
+        }
         return config
     },
     error => {
-        // do something with request error
-        console.log(error) // for debug
+        console.log(error)
         return Promise.reject(error)
     }
 )
 
-// Response interceptor
 service.interceptors.response.use(
     response => {
         const res = response.data
-        // You can add custom error handling here based on your backend response structure
         return res
     },
     error => {
-        console.log('err' + error) // for debug
+        console.log('err' + error)
+        if (error.response && error.response.status === 401) {
+            router.push('/login')
+        }
         return Promise.reject(error)
     }
 )

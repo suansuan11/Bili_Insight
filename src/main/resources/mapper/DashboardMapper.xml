@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecut.bili_insight.mapper.DashboardMapper">
+
+    <select id="getTotalVideos" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM popular_videos
+    </select>
+
+    <select id="getTotalComments" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM video_comment
+    </select>
+
+    <select id="getAvgSentiment" resultType="java.lang.Double">
+        SELECT AVG(CASE 
+            WHEN sentiment_label = 'POSITIVE' THEN 1.0 
+            WHEN sentiment_label = 'NEGATIVE' THEN -1.0 
+            ELSE 0 
+        END) FROM video_comment
+    </select>
+
+    <select id="getTotalTasks" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM analysis_task
+    </select>
+
+    <select id="getCompletedTasks" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM analysis_task WHERE status = 'COMPLETED'
+    </select>
+
+    <select id="getSentimentDistribution" resultType="java.util.Map">
+        SELECT sentiment_label, COUNT(*) as count 
+        FROM video_comment 
+        GROUP BY sentiment_label
+    </select>
+
+    <select id="getTopAspects" resultType="java.util.Map">
+        SELECT aspect, COUNT(*) as count 
+        FROM video_comment 
+        WHERE aspect != '' AND aspect IS NOT NULL 
+        GROUP BY aspect 
+        ORDER BY count DESC 
+        LIMIT 10
+    </select>
+
+    <select id="getTaskTrend" resultType="java.util.Map">
+        SELECT DATE(created_at) as date, COUNT(*) as count 
+        FROM analysis_task 
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
+        GROUP BY DATE(created_at) 
+        ORDER BY date ASC
+    </select>
+
+</mapper>

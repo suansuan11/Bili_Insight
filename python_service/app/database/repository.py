@@ -142,14 +142,15 @@ class DatabaseRepository:
             try:
                 sql = """
                 INSERT INTO video_danmaku
-                (bvid, task_id, content, dm_time, sentiment_score, sentiment_label)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (bvid, task_id, content, dm_time, appear_time, sentiment_score, sentiment_label)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 values = [
                     (
                         bvid,
                         task_id,
                         d.get('content', ''),
+                        d.get('dm_time', 0),
                         d.get('dm_time', 0),
                         d.get('sentiment_score'),
                         d.get('sentiment_label')
@@ -239,10 +240,10 @@ class DatabaseRepository:
             try:
                 sql = """
                 INSERT INTO popular_videos
-                (bvid, aid, title, author, author_mid, publish_date, duration,
+                (bvid, aid, title, author, publish_date, duration,
                  view_count, like_count, coin_count, favorite_count, share_count,
-                 danmaku_count, comment_count, description, cover_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 danmaku_count, comment_count, cover_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
                     view_count = VALUES(view_count),
@@ -259,7 +260,6 @@ class DatabaseRepository:
                 if 'owner' in video_info:
                     # B站API原始格式
                     author = video_info.get('owner', {}).get('name')
-                    author_mid = video_info.get('owner', {}).get('mid')
                     view_count = video_info.get('stat', {}).get('view')
                     like_count = video_info.get('stat', {}).get('like')
                     coin_count = video_info.get('stat', {}).get('coin')
@@ -269,14 +269,12 @@ class DatabaseRepository:
                     comment_count = video_info.get('comment_count', 0) # Already extracted in service
                     if not comment_count: # Fallback if direct not available (raw api response)
                          comment_count = video_info.get('stat', {}).get('reply', 0)
-                    
+
                     cover_url = video_info.get('pic')
-                    description = video_info.get('desc')
                     publish_date = video_info.get('pubdate')
                 else:
                     # 爬虫脚本格式 (已处理好的字段)
                     author = video_info.get('author')
-                    author_mid = video_info.get('author_mid')
                     view_count = video_info.get('view_count')
                     like_count = video_info.get('like_count')
                     coin_count = video_info.get('coin_count')
@@ -285,25 +283,29 @@ class DatabaseRepository:
                     danmaku_count = video_info.get('danmaku_count')
                     comment_count = video_info.get('comment_count')
                     cover_url = video_info.get('cover_url')
-                    description = video_info.get('description')
                     publish_date = video_info.get('publish_date')
+
+                # Ensure publish_date is formatted properly for MySQL if it's a timestamp
+                import datetime
+                if isinstance(publish_date, int):
+                    publish_date = datetime.datetime.fromtimestamp(publish_date).strftime('%Y-%m-%d %H:%M:%S')
+                elif not publish_date:
+                    publish_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                 cursor.execute(sql, (
                     video_info.get('bvid'),
-                    video_info.get('aid'),
+                    video_info.get('aid', 0),
                     video_info.get('title'),
                     author,
-                    author_mid,
                     publish_date,
-                    video_info.get('duration'),
-                    view_count,
-                    like_count,
-                    coin_count,
-                    favorite_count,
-                    share_count,
-                    danmaku_count,
-                    comment_count,
-                    description,
+                    video_info.get('duration', 0),
+                    view_count or 0,
+                    like_count or 0,
+                    coin_count or 0,
+                    favorite_count or 0,
+                    share_count or 0,
+                    danmaku_count or 0,
+                    comment_count or 0,
                     cover_url
                 ))
                 conn.commit()

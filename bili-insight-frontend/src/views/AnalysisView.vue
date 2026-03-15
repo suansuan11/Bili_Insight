@@ -55,10 +55,10 @@
               </div>
             </div>
             <div class="flex items-center gap-3">
-              <el-progress 
-                v-if="task.status === 'PROCESSING'"
-                type="circle" 
-                :percentage="task.progress || 0" 
+              <el-progress
+                v-if="task.status === 'RUNNING'"
+                type="circle"
+                :percentage="task.progress || 0"
                 :width="50"
               />
               <el-tag 
@@ -149,7 +149,7 @@ const handleTaskClick = (task: AnalysisTask) => {
 const getStatusType = (status: string) => {
   const types: Record<string, any> = {
     PENDING: 'info',
-    PROCESSING: '',
+    RUNNING: '',
     COMPLETED: 'success',
     FAILED: 'danger'
   }
@@ -159,7 +159,7 @@ const getStatusType = (status: string) => {
 const getStatusText = (status: string) => {
   const texts: Record<string, string> = {
     PENDING: 'Pending',
-    PROCESSING: 'Processing',
+    RUNNING: 'Running',
     COMPLETED: 'Completed',
     FAILED: 'Failed'
   }
