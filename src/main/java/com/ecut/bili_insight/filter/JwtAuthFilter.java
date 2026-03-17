@@ -37,12 +37,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 username = jwtUtil.extractUsername(token);
                 role = jwtUtil.extractClaim(token, claims -> claims.get("role", String.class));
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                // Token解析失败，跳过认证，交由Spring Security处理
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             if (jwtUtil.validateToken(token, username)) {
-                UserDetails userDetails = new User(username, "", Collections.singletonList(new SimpleGrantedAuthority(role)));
+                String authority = (role != null) ? role : "ROLE_USER";
+                UserDetails userDetails = new User(username, "", Collections.singletonList(new SimpleGrantedAuthority(authority)));
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

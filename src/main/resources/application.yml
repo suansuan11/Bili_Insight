@@ -24,8 +24,14 @@ python:
   service:
     url: http://localhost:8001
 
+jwt:
+  secret: ${JWT_SECRET:bili_insight_secret_key_which_must_be_long_enough_for_security}
+  expiration: 36000000
+
 mybatis:
-  mapper-locations: classpath:com/ecut/bili_insight/mapper/*.xml
+  mapper-locations:
+    - classpath:com/ecut/bili_insight/mapper/*.xml
+    - classpath:mapper/*.xml
   type-aliases-package: com.ecut.bili_insight.entity
   configuration:
     map-underscore-to-camel-case: true

@@ -19,7 +19,7 @@ public interface IAnalysisTaskService {
      * @param bvid 视频BVID
      * @return 任务ID
      */
-    Long submitAnalysisTask(String bvid);
+    String submitAnalysisTask(String bvid);
 
     /**
      * 查询任务状态
@@ -27,7 +27,7 @@ public interface IAnalysisTaskService {
      * @param taskId 任务ID
      * @return 任务实体
      */
-    AnalysisTask getTaskStatus(Long taskId);
+    AnalysisTask getTaskStatus(String taskId);
 
     /**
      * 根据BVID查询任务
@@ -43,7 +43,7 @@ public interface IAnalysisTaskService {
      * @param taskId 任务ID
      * @return 包含评论、弹幕、时间轴的完整数据
      */
-    Map<String, Object> getAnalysisResult(Long taskId);
+    Map<String, Object> getAnalysisResult(String taskId);
 
     /**
      * 获取视频评论列表
@@ -53,7 +53,7 @@ public interface IAnalysisTaskService {
      * @param aspect         切面(可选)
      * @return 评论列表
      */
-    List<VideoComment> getComments(Long taskId, String sentimentLabel, String aspect);
+    List<VideoComment> getComments(String taskId, String sentimentLabel, String aspect);
 
     /**
      * 获取视频弹幕列表
@@ -62,7 +62,7 @@ public interface IAnalysisTaskService {
      * @param sentimentLabel 情感标签(可选)
      * @return 弹幕列表
      */
-    List<VideoDanmaku> getDanmakus(Long taskId, String sentimentLabel);
+    List<VideoDanmaku> getDanmakus(String taskId, String sentimentLabel);
 
     /**
      * 获取情绪时间轴数据
@@ -70,7 +70,7 @@ public interface IAnalysisTaskService {
      * @param taskId 任务ID
      * @return 时间轴实体
      */
-    SentimentTimeline getTimeline(Long taskId);
+    SentimentTimeline getTimeline(String taskId);
 
     /**
      * 获取最近的任务列表

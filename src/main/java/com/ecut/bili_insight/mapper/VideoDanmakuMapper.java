@@ -23,7 +23,7 @@ public interface VideoDanmakuMapper {
      * @param taskId 任务ID
      * @return 弹幕列表
      */
-    List<VideoDanmaku> findByTaskId(@Param("taskId") Long taskId);
+    List<VideoDanmaku> findByTaskId(@Param("taskId") String taskId);
 
     /**
      * 根据任务ID和情感标签筛选弹幕
@@ -31,7 +31,7 @@ public interface VideoDanmakuMapper {
      * @param sentimentLabel 情感标签 (POSITIVE/NEGATIVE/NEUTRAL)
      * @return 弹幕列表
      */
-    List<VideoDanmaku> findByTaskIdAndSentiment(@Param("taskId") Long taskId,
+    List<VideoDanmaku> findByTaskIdAndSentiment(@Param("taskId") String taskId,
                                                @Param("sentimentLabel") String sentimentLabel);
 
     /**
@@ -39,5 +39,5 @@ public interface VideoDanmakuMapper {
      * @param taskId 任务ID
      * @return 弹幕总数
      */
-    int countByTaskId(@Param("taskId") Long taskId);
+    int countByTaskId(@Param("taskId") String taskId);
 }

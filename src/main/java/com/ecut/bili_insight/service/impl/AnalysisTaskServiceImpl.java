@@ -51,7 +51,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 3. 立即返回任务ID给前端
      */
     @Override
-    public Long submitAnalysisTask(String bvid) {
+    public String submitAnalysisTask(String bvid) {
         logger.info("Submitting analysis task for BVID: {}", bvid);
 
         // 检查是否已有相同BVID的任务
@@ -63,7 +63,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         }
 
         // 在事务中创建新任务
-        Long taskId = createTaskInTransaction(bvid);
+        String taskId = createTaskInTransaction(bvid);
         logger.info("Created task with ID: {}", taskId);
 
         // 事务提交后，异步调用Python服务
@@ -76,7 +76,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 在事务中创建任务
      */
     @Transactional
-    protected Long createTaskInTransaction(String bvid) {
+    protected String createTaskInTransaction(String bvid) {
         AnalysisTask task = new AnalysisTask();
         task.setBvid(bvid);
         task.setStatus("PENDING");
@@ -91,7 +91,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 异步调用Python分析服务
      */
     @Async
-    protected void callPythonServiceAsync(String bvid, Long taskId) {
+    protected void callPythonServiceAsync(String bvid, String taskId) {
         try {
             logger.info("Calling Python service asynchronously for task {}", taskId);
 
@@ -113,7 +113,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 查询任务状态
      */
     @Override
-    public AnalysisTask getTaskStatus(Long taskId) {
+    public AnalysisTask getTaskStatus(String taskId) {
         logger.debug("Fetching task status for ID: {}", taskId);
         return taskMapper.findById(taskId);
     }
@@ -141,7 +141,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 包含评论、弹幕、时间轴、统计数据
      */
     @Override
-    public Map<String, Object> getAnalysisResult(Long taskId) {
+    public Map<String, Object> getAnalysisResult(String taskId) {
         logger.info("Fetching complete analysis result for task {}", taskId);
 
         Map<String, Object> result = new HashMap<>();
@@ -180,7 +180,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 获取评论列表(支持筛选)
      */
     @Override
-    public List<VideoComment> getComments(Long taskId, String sentimentLabel, String aspect) {
+    public List<VideoComment> getComments(String taskId, String sentimentLabel, String aspect) {
         if (sentimentLabel != null && !sentimentLabel.isEmpty()) {
             logger.debug("Fetching comments by sentiment: {} for task {}", sentimentLabel, taskId);
             return commentMapper.findByTaskIdAndSentiment(taskId, sentimentLabel);
@@ -197,7 +197,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 获取弹幕列表(支持筛选)
      */
     @Override
-    public List<VideoDanmaku> getDanmakus(Long taskId, String sentimentLabel) {
+    public List<VideoDanmaku> getDanmakus(String taskId, String sentimentLabel) {
         if (sentimentLabel != null && !sentimentLabel.isEmpty()) {
             logger.debug("Fetching danmakus by sentiment: {} for task {}", sentimentLabel, taskId);
             return danmakuMapper.findByTaskIdAndSentiment(taskId, sentimentLabel);
@@ -211,7 +211,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 获取情绪时间轴
      */
     @Override
-    public SentimentTimeline getTimeline(Long taskId) {
+    public SentimentTimeline getTimeline(String taskId) {
         logger.debug("Fetching timeline for task {}", taskId);
         return timelineMapper.findByTaskId(taskId);
     }

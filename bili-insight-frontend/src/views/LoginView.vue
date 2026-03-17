@@ -1,17 +1,17 @@
 <template>
   <div class="login-container">
     <el-card class="login-card">
-      <h2>Login</h2>
+      <h2>Bili-Insight 登录</h2>
       <el-form :model="form" @submit.prevent="handleLogin">
-        <el-form-item label="Username">
-          <el-input v-model="form.username" required></el-input>
+        <el-form-item label="用户名">
+          <el-input v-model="form.username" placeholder="请输入用户名" required></el-input>
         </el-form-item>
-        <el-form-item label="Password">
-          <el-input v-model="form.password" type="password" required></el-input>
+        <el-form-item label="密码">
+          <el-input v-model="form.password" type="password" placeholder="请输入密码" required show-password></el-input>
         </el-form-item>
-        <el-button type="primary" native-type="submit" :loading="loading">Login</el-button>
+        <el-button type="primary" native-type="submit" :loading="loading" style="width: 100%">登录</el-button>
         <div class="links">
-          <router-link to="/register">Don't have an account? Register</router-link>
+          <router-link to="/register">没有账号？立即注册</router-link>
         </div>
       </el-form>
     </el-card>
@@ -29,18 +29,25 @@ const form = ref({ username: '', password: '' })
 const loading = ref(false)
 
 const handleLogin = async () => {
+  if (!form.value.username || !form.value.password) {
+    ElMessage.warning('请输入用户名和密码')
+    return
+  }
   loading.value = true
   try {
     const res: any = await request.post('/insight/auth/login', form.value)
-    if (res.code === 0 && res.data?.token) {
-      localStorage.setItem('token', res.data.token)
-      ElMessage.success('Login successful')
+    // AuthController直接返回 { token, username, role }
+    const token = res.token || res.data?.token
+    if (token) {
+      localStorage.setItem('token', token)
+      ElMessage.success('登录成功')
       router.push('/')
     } else {
-      ElMessage.error(res.message || 'Login failed')
+      ElMessage.error(res.message || '登录失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || 'Login failed')
+    const msg = error.response?.data || error.message || '登录失败'
+    ElMessage.error(typeof msg === 'string' ? msg : '用户名或密码错误')
   } finally {
     loading.value = false
   }
@@ -53,18 +60,20 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 .login-card {
-  width: 400px;
-  padding: 20px;
+  width: 420px;
+  padding: 30px;
+  border-radius: 12px;
 }
 h2 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  color: #303133;
 }
 .links {
-  margin-top: 15px;
+  margin-top: 16px;
   text-align: center;
 }
 </style>

@@ -13,7 +13,7 @@ public class AnalysisTask {
      * 任务ID
      */
     @JsonProperty("id")
-    private Long taskId;
+    private String taskId;
 
     /**
      * 视频BVID
@@ -49,11 +49,6 @@ public class AnalysisTask {
      * 创建时间
      */
     private LocalDateTime createdAt;
-
-    /**
-     * 开始时间
-     */
-    private LocalDateTime startedAt;
 
     /**
      * 完成时间

@@ -10,11 +10,13 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
+      meta: { public: true }
     },
     {
       path: '/register',
       name: 'register',
       component: () => import('@/views/RegisterView.vue'),
+      meta: { public: true }
     },
     {
       path: '/',
@@ -48,6 +50,20 @@ const router = createRouter({
       ]
     },
   ],
+})
+
+// 路由守卫：未登录用户重定向到登录页
+router.beforeEach((to, _from, next) => {
+  const token = localStorage.getItem('token')
+  const isPublicRoute = to.meta.public === true
+
+  if (!token && !isPublicRoute) {
+    next('/login')
+  } else if (token && (to.path === '/login' || to.path === '/register')) {
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

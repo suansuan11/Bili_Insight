@@ -46,7 +46,7 @@ public class AnalysisController {
             }
 
             // 提交任务
-            Long taskId = analysisTaskService.submitAnalysisTask(bvid);
+            String taskId = analysisTaskService.submitAnalysisTask(bvid);
 
             Map<String, Object> response = new HashMap<>();
             response.put("task_id", taskId);
@@ -69,7 +69,7 @@ public class AnalysisController {
      * @return 任务状态信息
      */
     @GetMapping("/status/{taskId}")
-    public Result<AnalysisTask> getTaskStatus(@PathVariable Long taskId) {
+    public Result<AnalysisTask> getTaskStatus(@PathVariable String taskId) {
         logger.debug("Received status query for task ID: {}", taskId);
 
         try {
@@ -139,7 +139,7 @@ public class AnalysisController {
      * @return 包含评论、弹幕、时间轴的完整数据
      */
     @GetMapping("/result/{taskId}")
-    public Result<Map<String, Object>> getAnalysisResult(@PathVariable Long taskId) {
+    public Result<Map<String, Object>> getAnalysisResult(@PathVariable String taskId) {
         logger.info("Received complete result query for task ID: {}", taskId);
 
         try {
@@ -167,7 +167,7 @@ public class AnalysisController {
      */
     @GetMapping("/comments/{taskId}")
     public Result<List<VideoComment>> getComments(
-            @PathVariable Long taskId,
+            @PathVariable String taskId,
             @RequestParam(required = false) String sentiment,
             @RequestParam(required = false) String aspect) {
 
@@ -192,7 +192,7 @@ public class AnalysisController {
      */
     @GetMapping("/danmakus/{taskId}")
     public Result<List<VideoDanmaku>> getDanmakus(
-            @PathVariable Long taskId,
+            @PathVariable String taskId,
             @RequestParam(required = false) String sentiment) {
 
         logger.debug("Fetching danmakus for task {}: sentiment={}", taskId, sentiment);
@@ -214,7 +214,7 @@ public class AnalysisController {
      * @return 时间轴JSON数据
      */
     @GetMapping("/timeline/{taskId}")
-    public Result<SentimentTimeline> getTimeline(@PathVariable Long taskId) {
+    public Result<SentimentTimeline> getTimeline(@PathVariable String taskId) {
         logger.debug("Fetching timeline for task ID: {}", taskId);
 
         try {

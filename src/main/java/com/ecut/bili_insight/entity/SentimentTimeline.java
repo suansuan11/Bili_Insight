@@ -20,7 +20,7 @@ public class SentimentTimeline {
     /**
      * 任务ID
      */
-    private Long taskId;
+    private String taskId;
 
     /**
      * 情绪时间轴JSON数据

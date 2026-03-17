@@ -22,7 +22,7 @@ public class VideoComment {
     /**
      * 任务ID
      */
-    private Long taskId;
+    private String taskId;
 
     /**
      * 用户昵称
@@ -63,6 +63,11 @@ public class VideoComment {
      * ABSA切面标签
      */
     private String aspect;
+
+    /**
+     * 发布时间
+     */
+    private LocalDateTime publishTime;
 
     /**
      * 爬取时间

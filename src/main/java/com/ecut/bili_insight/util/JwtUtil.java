@@ -3,6 +3,7 @@ package com.ecut.bili_insight.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -13,7 +14,11 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    private String secret = "bili_insight_secret_key_which_must_be_long_enough_for_security";
+    @Value("${jwt.secret}")
+    private String secret;
+
+    @Value("${jwt.expiration:36000000}")
+    private long expiration;
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -29,7 +34,7 @@ public class JwtUtil {
         claims.put("role", role);
         return Jwts.builder().setClaims(claims).setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(SignatureAlgorithm.HS256, secret).compact();
     }
 

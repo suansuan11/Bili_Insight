@@ -1,7 +1,7 @@
 """Bili-Insight Python分析服务 - FastAPI应用"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import analyze, popular, credential, login, analysis
+from .routers import popular, credential, login, analysis
 from .config import settings
 from .services.credential_manager import get_credential_manager
 
@@ -25,7 +25,6 @@ app.add_middleware(
 get_credential_manager()
 
 # 注册路由
-app.include_router(analyze.router, prefix="/api/analyze", tags=["分析服务"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["视频完整分析"])
 app.include_router(popular.router, prefix="/api/popular", tags=["热门视频"])
 app.include_router(credential.router, prefix="/api/credential", tags=["凭证管理"])

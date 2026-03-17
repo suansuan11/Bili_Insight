@@ -22,12 +22,12 @@ public interface SentimentTimelineMapper {
      * @param taskId 任务ID
      * @return 时间轴实体
      */
-    SentimentTimeline findByTaskId(@Param("taskId") Long taskId);
+    SentimentTimeline findByTaskId(@Param("taskId") String taskId);
 
     /**
      * 根据任务ID删除时间轴
      * @param taskId 任务ID
      * @return 受影响的行数
      */
-    int deleteByTaskId(@Param("taskId") Long taskId);
+    int deleteByTaskId(@Param("taskId") String taskId);
 }

@@ -24,7 +24,7 @@ public interface AnalysisTaskMapper {
      * @param taskId 任务ID
      * @return 任务实体
      */
-    AnalysisTask findById(@Param("taskId") Long taskId);
+    AnalysisTask findById(@Param("taskId") String taskId);
 
     /**
      * 根据BVID查询任务
@@ -42,7 +42,7 @@ public interface AnalysisTaskMapper {
      * @param errorMessage 错误信息(可选)
      * @return 受影响的行数
      */
-    int updateStatus(@Param("taskId") Long taskId,
+    int updateStatus(@Param("taskId") String taskId,
             @Param("status") String status,
             @Param("errorMessage") String errorMessage);
 
@@ -54,7 +54,7 @@ public interface AnalysisTaskMapper {
      * @param currentStep 当前步骤
      * @return 受影响的行数
      */
-    int updateProgress(@Param("taskId") Long taskId,
+    int updateProgress(@Param("taskId") String taskId,
             @Param("progress") Integer progress,
             @Param("currentStep") String currentStep);
 

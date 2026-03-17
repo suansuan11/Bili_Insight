@@ -25,22 +25,22 @@ class AnalyzeVideoRequest(BaseModel):
 
 class TaskResponse(BaseModel):
     """任务响应"""
-    task_id: int
+    task_id: str
     message: str
 
 
 class TaskStatusResponse(BaseModel):
     """任务状态响应"""
-    task_id: int
+    task_id: str
     status: str
     progress: int
-    current_step: str
+    current_step: Optional[str] = None
     error_message: Optional[str] = None
 
 
 class TaskResultResponse(BaseModel):
     """任务结果响应"""
-    task_id: int
+    task_id: str
     status: str
     bvid: str
     comment_count: int
@@ -52,7 +52,7 @@ class TaskResultResponse(BaseModel):
 # ====== 后台任务函数 ======
 
 async def analyze_video_background(
-    task_id: int,
+    task_id: str,
     bvid: str,
     max_comments: int,
     credential
@@ -134,7 +134,7 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
 
 
 @router.get("/status/{task_id}", response_model=TaskStatusResponse)
-async def get_task_status(task_id: int):
+async def get_task_status(task_id: str):
     """查询任务状态（用于前端轮询）"""
     try:
         storage_service = VideoStorageService()
@@ -147,7 +147,7 @@ async def get_task_status(task_id: int):
             task_id=task_id,
             status=task_info['status'],
             progress=task_info['progress'],
-            current_step=task_info['current_step'],
+            current_step=task_info.get('current_step'),
             error_message=task_info.get('error_message')
         )
 
@@ -158,7 +158,7 @@ async def get_task_status(task_id: int):
 
 
 @router.get("/result/{task_id}", response_model=TaskResultResponse)
-async def get_task_result(task_id: int):
+async def get_task_result(task_id: str):
     """获取任务完整结果"""
     try:
         storage_service = VideoStorageService()
@@ -207,7 +207,7 @@ async def get_task_result(task_id: int):
 
 
 @router.get("/timeline/{task_id}")
-async def get_sentiment_timeline(task_id: int):
+async def get_sentiment_timeline(task_id: str):
     """获取情绪时间轴数据（用于ECharts渲染）"""
     try:
         storage_service = VideoStorageService()
@@ -242,7 +242,7 @@ async def get_sentiment_timeline(task_id: int):
 
 
 @router.get("/aspects/{task_id}")
-async def get_aspect_sentiments(task_id: int):
+async def get_aspect_sentiments(task_id: str):
     """获取切面情感分析数据（用于雷达图等）"""
     try:
         storage_service = VideoStorageService()

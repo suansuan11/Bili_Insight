@@ -5,7 +5,13 @@
       "Bash(cat:*)",
       "Bash(mysql --version:*)",
       "Bash(mysql -u root -pLiuyi325 bili_insight_db -e \"SET FOREIGN_KEY_CHECKS = 0; \\\\. sql/bili_insight_db.sql; SET FOREIGN_KEY_CHECKS = 1;\")",
-      "Bash(cd python_service\nrm app/routers/analyze.py)"
+      "Bash(cd python_service\nrm app/routers/analyze.py)",
+      "Bash(mvn clean:*)",
+      "Bash(ls -la /Users/dio/project/Bili_Insight/python_service/app/routers/*.py)",
+      "Bash(python3 -m py_compile app/main.py)",
+      "Bash(python3 -c \"from app.routers import analyze, popular, credential, login, analysis\")",
+      "Bash(python3 -c \":*)",
+      "Bash(npx vue-tsc:*)"
     ]
   }
 }

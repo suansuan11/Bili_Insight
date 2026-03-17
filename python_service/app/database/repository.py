@@ -44,11 +44,10 @@ class DatabaseRepository:
                 sql = """
                 UPDATE analysis_task
                 SET progress = %s, current_step = %s, status = %s,
-                    started_at = IF(started_at IS NULL AND %s = 'RUNNING', NOW(), started_at),
                     completed_at = IF(%s IN ('COMPLETED', 'FAILED'), NOW(), completed_at)
                 WHERE task_id = %s
                 """
-                cursor.execute(sql, (progress, current_step, status, status, status, task_id))
+                cursor.execute(sql, (progress, current_step, status, status, task_id))
                 conn.commit()
             finally:
                 cursor.close()

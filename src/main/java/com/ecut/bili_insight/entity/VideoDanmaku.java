@@ -22,7 +22,7 @@ public class VideoDanmaku {
     /**
      * 任务ID
      */
-    private Long taskId;
+    private String taskId;
 
     /**
      * 弹幕内容

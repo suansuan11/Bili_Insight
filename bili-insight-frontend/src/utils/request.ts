@@ -15,19 +15,19 @@ service.interceptors.request.use(
         return config
     },
     error => {
-        console.log(error)
+        console.error('Request error:', error)
         return Promise.reject(error)
     }
 )
 
 service.interceptors.response.use(
     response => {
-        const res = response.data
-        return res
+        return response.data
     },
     error => {
-        console.log('err' + error)
         if (error.response && error.response.status === 401) {
+            // 清除过期的token并跳转到登录页
+            localStorage.removeItem('token')
             router.push('/login')
         }
         return Promise.reject(error)

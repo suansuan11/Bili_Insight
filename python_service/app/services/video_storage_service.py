@@ -4,6 +4,7 @@
 """
 from ..config import settings
 import json
+import uuid
 from typing import List, Dict, Optional
 from datetime import datetime
 import jieba
@@ -43,7 +44,7 @@ class VideoStorageService:
         """获取数据库连接"""
         return pymysql.connect(**self.db_config, cursorclass=DictCursor)
 
-    async def create_task(self, bvid: str, task_type: str = "VIDEO_REVIEW") -> int:
+    async def create_task(self, bvid: str, task_type: str = "VIDEO_REVIEW") -> str:
         """
         创建分析任务
 
@@ -52,30 +53,30 @@ class VideoStorageService:
             task_type: 任务类型
 
         Returns:
-            任务ID
+            任务ID (UUID字符串)
         """
+        task_id = str(uuid.uuid4())[:32]  # 生成UUID作为task_id
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
                 sql = """
-                    INSERT INTO analysis_task (bvid, status, task_type, progress, current_step)
-                    VALUES (%s, 'RUNNING', %s, 0, '任务已创建')
+                    INSERT INTO analysis_task (task_id, bvid, status, task_type, progress, current_step)
+                    VALUES (%s, %s, 'RUNNING', %s, 0, '任务已创建')
                 """
-                cursor.execute(sql, (bvid, task_type))
+                cursor.execute(sql, (task_id, bvid, task_type))
                 conn.commit()
-                return cursor.lastrowid
+                return task_id
         finally:
             conn.close()
 
-    async def update_task_progress(self, task_id: int, progress: int, current_step: str):
+    async def update_task_progress(self, task_id: str, progress: int, current_step: str):
         """更新任务进度"""
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
                 sql = """
                     UPDATE analysis_task
-                    SET progress = %s, current_step = %s,
-                        started_at = COALESCE(started_at, NOW())
+                    SET progress = %s, current_step = %s
                     WHERE task_id = %s
                 """
                 cursor.execute(sql, (progress, current_step, task_id))
@@ -83,7 +84,7 @@ class VideoStorageService:
         finally:
             conn.close()
 
-    async def complete_task(self, task_id: int):
+    async def complete_task(self, task_id: str):
         """标记任务完成"""
         conn = self.get_connection()
         try:
@@ -99,7 +100,7 @@ class VideoStorageService:
         finally:
             conn.close()
 
-    async def fail_task(self, task_id: int, error_message: str):
+    async def fail_task(self, task_id: str, error_message: str):
         """标记任务失败"""
         conn = self.get_connection()
         try:
@@ -132,10 +133,10 @@ class VideoStorageService:
             s = SnowNLP(text)
             score = s.sentiments  # 0-1之间，越接近1越正面
 
-            # 分类标签
-            if score >= 0.6:
+            # 使用配置中的阈值
+            if score >= settings.sentiment_positive_threshold:
                 label = 'POSITIVE'
-            elif score <= 0.4:
+            elif score <= settings.sentiment_negative_threshold:
                 label = 'NEGATIVE'
             else:
                 label = 'NEUTRAL'
@@ -162,7 +163,7 @@ class VideoStorageService:
                     return aspect
         return None
 
-    async def save_comments(self, task_id: int, bvid: str, comments: List[Dict]) -> int:
+    async def save_comments(self, task_id: str, bvid: str, comments: List[Dict]) -> int:
         """
         保存评论到数据库并进行情感分析
 
@@ -182,8 +183,8 @@ class VideoStorageService:
             with conn.cursor() as cursor:
                 sql = """
                     INSERT INTO video_comment
-                    (task_id, bvid, bilibili_comment_id, author, author_mid, gender,
-                     content, like_count, sentiment_score, sentiment_label, aspect)
+                    (comment_id, task_id, bvid, username, gender,
+                     content, like_count, sentiment_score, sentiment_label, aspect, publish_time)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
 
@@ -200,35 +201,41 @@ class VideoStorageService:
                     aspect = self.detect_aspect(content)
 
                     # 解析时间戳
-                    post_time = None
+                    publish_time = None
                     if comment.get('create_time'):
                         try:
-                            post_time = datetime.fromtimestamp(comment['create_time'])
+                            publish_time = datetime.fromtimestamp(comment['create_time'])
                         except:
                             pass
 
+                    # 使用reply_id作为comment_id主键
+                    comment_id = comment.get('reply_id', 0)
+                    if not comment_id:
+                        comment_id = abs(hash(f"{bvid}_{content}_{inserted}")) % (2**63)
+
                     cursor.execute(sql, (
+                        comment_id,
                         task_id,
                         bvid,
-                        comment.get('reply_id'),
-                        comment.get('author'),
-                        comment.get('author_mid'),
-                        comment.get('gender'),
+                        comment.get('author', '未知用户'),
+                        comment.get('gender', '未知'),
                         content,
                         comment.get('like', 0),
                         score,
                         label,
-                        aspect
+                        aspect,
+                        publish_time
                     ))
                     inserted += 1
 
                 conn.commit()
+                print(f"成功保存 {inserted} 条评论")
                 return inserted
 
         finally:
             conn.close()
 
-    async def save_danmakus(self, task_id: int, bvid: str, danmakus: List[Dict]) -> int:
+    async def save_danmakus(self, task_id: str, bvid: str, danmakus: List[Dict]) -> int:
         """
         保存弹幕到数据库并进行情感分析
 
@@ -248,8 +255,8 @@ class VideoStorageService:
             with conn.cursor() as cursor:
                 sql = """
                     INSERT INTO video_danmaku
-                    (task_id, bvid, content, dm_time, sentiment_score, sentiment_label)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    (danmaku_id, task_id, bvid, content, dm_time, appear_time, sentiment_score, sentiment_label)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """
 
                 inserted = 0
@@ -261,23 +268,29 @@ class VideoStorageService:
                     # 情感分析
                     score, label = self.calculate_sentiment(content)
 
+                    dm_time = int(dm.get('dm_time', 0))
+                    danmaku_id = abs(hash(f"{bvid}_{content}_{dm_time}_{inserted}")) % (2**63)
+
                     cursor.execute(sql, (
+                        danmaku_id,
                         task_id,
                         bvid,
                         content,
-                        dm.get('dm_time', 0),
+                        dm_time,
+                        dm_time,  # appear_time = dm_time
                         score,
                         label
                     ))
                     inserted += 1
 
                 conn.commit()
+                print(f"成功保存 {inserted} 条弹幕")
                 return inserted
 
         finally:
             conn.close()
 
-    async def generate_sentiment_timeline(self, task_id: int, bvid: str) -> Dict:
+    async def generate_sentiment_timeline(self, task_id: str, bvid: str) -> Dict:
         """
         生成情绪时间轴数据
 
@@ -340,13 +353,13 @@ class VideoStorageService:
                 aspect_json = json.dumps(aspects, ensure_ascii=False)
 
                 sql_insert = """
-                    INSERT INTO sentiment_timeline (task_id, timeline_json, aspect_sentiment_json)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO sentiment_timeline (task_id, bvid, timeline_json, aspect_sentiment_json)
+                    VALUES (%s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         timeline_json = VALUES(timeline_json),
                         aspect_sentiment_json = VALUES(aspect_sentiment_json)
                 """
-                cursor.execute(sql_insert, (task_id, timeline_json, aspect_json))
+                cursor.execute(sql_insert, (task_id, bvid, timeline_json, aspect_json))
                 conn.commit()
 
                 return {
@@ -357,7 +370,7 @@ class VideoStorageService:
         finally:
             conn.close()
 
-    async def get_task_info(self, task_id: int) -> Dict:
+    async def get_task_info(self, task_id: str) -> Dict:
         """查询任务信息"""
         conn = self.get_connection()
         try:
@@ -368,7 +381,7 @@ class VideoStorageService:
         finally:
             conn.close()
 
-    async def get_comment_stats(self, task_id: int) -> Dict:
+    async def get_comment_stats(self, task_id: str) -> Dict:
         """查询评论统计"""
         conn = self.get_connection()
         try:
@@ -385,20 +398,20 @@ class VideoStorageService:
                 cursor.execute(sql, (task_id,))
                 result = cursor.fetchone()
 
-                total = result['total']
+                total = result['total'] or 0
                 return {
                     'total': total,
-                    'positive': result['positive'],
-                    'neutral': result['neutral'],
-                    'negative': result['negative'],
-                    'positive_rate': result['positive'] / total if total > 0 else 0,
-                    'neutral_rate': result['neutral'] / total if total > 0 else 0,
-                    'negative_rate': result['negative'] / total if total > 0 else 0
+                    'positive': result['positive'] or 0,
+                    'neutral': result['neutral'] or 0,
+                    'negative': result['negative'] or 0,
+                    'positive_rate': (result['positive'] or 0) / total if total > 0 else 0,
+                    'neutral_rate': (result['neutral'] or 0) / total if total > 0 else 0,
+                    'negative_rate': (result['negative'] or 0) / total if total > 0 else 0
                 }
         finally:
             conn.close()
 
-    async def get_danmaku_stats(self, task_id: int) -> Dict:
+    async def get_danmaku_stats(self, task_id: str) -> Dict:
         """查询弹幕统计"""
         conn = self.get_connection()
         try:
@@ -415,15 +428,15 @@ class VideoStorageService:
                 cursor.execute(sql, (task_id,))
                 result = cursor.fetchone()
 
-                total = result['total']
+                total = result['total'] or 0
                 return {
                     'total': total,
-                    'positive': result['positive'],
-                    'neutral': result['neutral'],
-                    'negative': result['negative'],
-                    'positive_rate': result['positive'] / total if total > 0 else 0,
-                    'neutral_rate': result['neutral'] / total if total > 0 else 0,
-                    'negative_rate': result['negative'] / total if total > 0 else 0
+                    'positive': result['positive'] or 0,
+                    'neutral': result['neutral'] or 0,
+                    'negative': result['negative'] or 0,
+                    'positive_rate': (result['positive'] or 0) / total if total > 0 else 0,
+                    'neutral_rate': (result['neutral'] or 0) / total if total > 0 else 0,
+                    'negative_rate': (result['negative'] or 0) / total if total > 0 else 0
                 }
         finally:
             conn.close()

@@ -3,16 +3,19 @@
 <mapper namespace="com.ecut.bili_insight.mapper.VideoDanmakuMapper">
 
     <insert id="batchInsert" parameterType="java.util.List">
-        INSERT INTO video_danmaku (task_id, content, dm_time, sentiment_score, sentiment_label)
+        INSERT INTO video_danmaku (danmaku_id, task_id, bvid, content, dm_time, appear_time,
+                                   sentiment_score, sentiment_label)
         VALUES
         <foreach collection="danmakus" item="danmaku" separator=",">
-            (#{danmaku.taskId}, #{danmaku.content}, #{danmaku.dmTime},
+            (#{danmaku.danmakuId}, #{danmaku.taskId}, #{danmaku.bvid}, #{danmaku.content},
+             #{danmaku.dmTime}, #{danmaku.dmTime},
              #{danmaku.sentimentScore}, #{danmaku.sentimentLabel})
         </foreach>
     </insert>
 
     <select id="findByTaskId" resultType="com.ecut.bili_insight.entity.VideoDanmaku">
-        SELECT task_id AS taskId, content, dm_time AS dmTime,
+        SELECT danmaku_id AS danmakuId, task_id AS taskId, bvid, content,
+               dm_time AS dmTime, appear_time AS appearTime,
                sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel
         FROM video_danmaku
         WHERE task_id = #{taskId}
@@ -20,7 +23,8 @@
     </select>
 
     <select id="findByTaskIdAndSentiment" resultType="com.ecut.bili_insight.entity.VideoDanmaku">
-        SELECT task_id AS taskId, content, dm_time AS dmTime,
+        SELECT danmaku_id AS danmakuId, task_id AS taskId, bvid, content,
+               dm_time AS dmTime, appear_time AS appearTime,
                sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel
         FROM video_danmaku
         WHERE task_id = #{taskId} AND sentiment_label = #{sentimentLabel}

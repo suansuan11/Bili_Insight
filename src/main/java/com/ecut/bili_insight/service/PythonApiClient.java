@@ -38,7 +38,7 @@ public class PythonApiClient {
      * @param taskId Java端任务ID
      * @return 是否提交成功
      */
-    public boolean submitAnalysisTask(String bvid, Long taskId) {
+    public boolean submitAnalysisTask(String bvid, String taskId) {
         String url = pythonServiceUrl + "/api/analyze/video";
 
         try {
@@ -75,7 +75,7 @@ public class PythonApiClient {
      * @param taskId 任务ID
      * @return 进度信息的JSON字符串
      */
-    public String getTaskProgress(Long taskId) {
+    public String getTaskProgress(String taskId) {
         String url = pythonServiceUrl + "/api/analyze/progress/" + taskId;
 
         try {

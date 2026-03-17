@@ -23,7 +23,7 @@ public interface VideoCommentMapper {
      * @param taskId 任务ID
      * @return 评论列表
      */
-    List<VideoComment> findByTaskId(@Param("taskId") Long taskId);
+    List<VideoComment> findByTaskId(@Param("taskId") String taskId);
 
     /**
      * 根据任务ID和情感标签筛选评论
@@ -31,7 +31,7 @@ public interface VideoCommentMapper {
      * @param sentimentLabel 情感标签 (POSITIVE/NEGATIVE/NEUTRAL)
      * @return 评论列表
      */
-    List<VideoComment> findByTaskIdAndSentiment(@Param("taskId") Long taskId,
+    List<VideoComment> findByTaskIdAndSentiment(@Param("taskId") String taskId,
                                                 @Param("sentimentLabel") String sentimentLabel);
 
     /**
@@ -40,7 +40,7 @@ public interface VideoCommentMapper {
      * @param aspect 切面名称
      * @return 评论列表
      */
-    List<VideoComment> findByTaskIdAndAspect(@Param("taskId") Long taskId,
+    List<VideoComment> findByTaskIdAndAspect(@Param("taskId") String taskId,
                                             @Param("aspect") String aspect);
 
     /**
@@ -48,5 +48,5 @@ public interface VideoCommentMapper {
      * @param taskId 任务ID
      * @return 评论总数
      */
-    int countByTaskId(@Param("taskId") Long taskId);
+    int countByTaskId(@Param("taskId") String taskId);
 }
