@@ -39,7 +39,7 @@ public class PythonApiClient {
      * @return 是否提交成功
      */
     public boolean submitAnalysisTask(String bvid, String taskId) {
-        String url = pythonServiceUrl + "/api/analyze/video";
+        String url = pythonServiceUrl + "/api/analysis/video";
 
         try {
             // 构建请求体
@@ -76,7 +76,7 @@ public class PythonApiClient {
      * @return 进度信息的JSON字符串
      */
     public String getTaskProgress(String taskId) {
-        String url = pythonServiceUrl + "/api/analyze/progress/" + taskId;
+        String url = pythonServiceUrl + "/api/analysis/status/" + taskId;
 
         try {
             logger.debug("Querying task progress from Python service: taskId={}", taskId);
@@ -141,6 +141,37 @@ public class PythonApiClient {
         } catch (Exception e) {
             logger.error("Failed to parse current step: {}", e.getMessage());
             return "Unknown";
+        }
+    }
+
+    /**
+     * 触发Python服务抓取热门视频
+     * @param pages 抓取页数
+     * @return 抓取结果JSON
+     */
+    public String fetchPopularVideos(int pages) {
+        String url = pythonServiceUrl + "/api/popular/fetch?pages=" + pages;
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(url, null, String.class);
+            return response.getBody();
+        } catch (Exception e) {
+            logger.error("Error fetching popular videos: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to fetch popular videos", e);
+        }
+    }
+
+    /**
+     * 查询热门视频抓取状态
+     * @return 抓取状态JSON
+     */
+    public String getPopularFetchStatus() {
+        String url = pythonServiceUrl + "/api/popular/fetch/status";
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            return response.getBody();
+        } catch (Exception e) {
+            logger.error("Error getting popular fetch status: {}", e.getMessage(), e);
+            return "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}";
         }
     }
 

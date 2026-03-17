@@ -290,8 +290,8 @@ const filteredDanmakus = computed<VideoDanmaku[]>(() => {
 
 // Methods
 const fetchAnalysisResult = async () => {
-  const taskId = Number(route.params.id)
-  if (!taskId || isNaN(taskId)) {
+  const taskId = route.params.id as string
+  if (!taskId) {
     error.value = '无效的任务ID'
     return
   }
@@ -299,7 +299,7 @@ const fetchAnalysisResult = async () => {
   isLoading.value = true
   error.value = null
   try {
-    const response = await getAnalysisResult(taskId)
+    const response = await getAnalysisResult(taskId as any)
     if (response.code === 0) {
       result.value = response.data as any
       // Initialize Player URL
@@ -347,21 +347,24 @@ const renderChart = () => {
       formatter: (params: any) => {
         if (!params || !params.length) return ''
         const item = timelineData[params[0].dataIndex]
-        return `<strong>${formatTime(item.time_point)}</strong><br/>
+        const timeVal = item.time_point || item.time
+        const sentimentVal = item.avg_sentiment ?? item.score
+        const countVal = item.danmaku_count ?? item.count
+        return `<strong>${formatTime(timeVal)}</strong><br/>
                 <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#6366f1;"></span>
-                情感均值: ${item.avg_sentiment}<br/>
+                情感均值: ${sentimentVal}<br/>
                 <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#e5e7eb;"></span>
-                弹幕数量: ${item.danmaku_count}`
+                弹幕数量: ${countVal}`
       }
     },
     grid: { left: '40', right: '20', bottom: '30', top: '30', containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: timelineData.map((item: any) => item.time_point),
+      data: timelineData.map((item: any) => item.time_point || item.time),
       axisLabel: { formatter: (val: any) => formatTime(val) }
     },
-    yAxis: { 
+    yAxis: {
       type: 'value',
       min: 0,
       max: 1,
@@ -374,7 +377,7 @@ const renderChart = () => {
         smooth: 0.3,
         symbol: 'none',
         lineStyle: { width: 3, shadowColor: 'rgba(99, 102, 241, 0.3)', shadowBlur: 10 },
-        data: timelineData.map((item: any) => item.avg_sentiment),
+        data: timelineData.map((item: any) => item.avg_sentiment ?? item.score),
         itemStyle: { color: '#6366f1' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -468,12 +471,12 @@ const formatTime = (seconds: number) => {
 }
 
 const getStatusType = (status: string) => {
-  const types: Record<string, any> = { PENDING: 'info', PROCESSING: '', COMPLETED: 'success', FAILED: 'danger' }
+  const types: Record<string, any> = { PENDING: 'info', RUNNING: '', PROCESSING: '', COMPLETED: 'success', FAILED: 'danger' }
   return types[status] || 'info'
 }
 
 const getStatusText = (status: string) => {
-  const texts: Record<string, string> = { PENDING: '等待中', PROCESSING: '处理中', COMPLETED: '已完成', FAILED: '失败' }
+  const texts: Record<string, string> = { PENDING: '等待中', RUNNING: '处理中', PROCESSING: '处理中', COMPLETED: '已完成', FAILED: '失败' }
   return texts[status] || status
 }
 

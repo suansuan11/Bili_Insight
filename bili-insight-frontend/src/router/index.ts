@@ -40,7 +40,12 @@ const router = createRouter({
         {
           path: 'analysis/:id',
           name: 'analysis-detail',
-          component: () => import('@/views/VideoReviewView.vue'),
+          component: () => import('@/views/AnalysisDetailView.vue'),
+        },
+        {
+          path: 'projects',
+          name: 'projects',
+          component: () => import('@/views/ProjectsView.vue'),
         },
         {
           path: 'settings',

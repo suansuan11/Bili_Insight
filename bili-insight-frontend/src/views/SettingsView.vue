@@ -112,7 +112,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
-import axios from 'axios'
+import request from '@/utils/request'
 
 const activeTab = ref('account') // Default to account tab to check login
 const darkMode = ref(false)
@@ -149,7 +149,7 @@ const saveApiSettings = () => {
 
 const checkLoginStatus = async () => {
    try {
-      const res = await axios.get(`${pythonServiceUrl.value}/api/login/current_user`)
+      const res = await request.get('/insight/login/qrcode/poll?key=check')
       if (res.data && res.data.is_login) {
          isLoggedIn.value = true
          userInfo.value = res.data
@@ -166,7 +166,7 @@ const checkLoginStatus = async () => {
 const getQrCode = async () => {
    loadingQr.value = true
    try {
-      const res = await axios.get(`${pythonServiceUrl.value}/api/login/qrcode`)
+      const res = await request.get('/insight/login/qrcode/generate')
       if (res.data) {
          qrCodeUrl.value = res.data.qrcode_url
          qrCodeKey.value = res.data.qrcode_key
@@ -191,7 +191,7 @@ const startPolling = () => {
    stopPolling()
    pollTimer = window.setInterval(async () => {
       try {
-         const res = await axios.get(`${pythonServiceUrl.value}/api/login/status/${qrCodeKey.value}`)
+         const res = await request.get(`/insight/login/qrcode/poll?key=${qrCodeKey.value}`)
          const status = res.data.status
          
          if (status === 'scanned') {

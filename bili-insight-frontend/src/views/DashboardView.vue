@@ -1,9 +1,16 @@
 <template>
   <div class="dashboard-view">
-    <!-- Welcome Section -->
-    <div class="mb-8">
-      <h2 class="text-2xl font-bold mb-2">Welcome back!</h2>
-      <p class="text-gray-500">Here's what's happening with your video analysis.</p>
+    <!-- Welcome Banner -->
+    <div class="welcome-banner mb-8">
+      <div class="welcome-content">
+        <div>
+          <h2 class="text-2xl font-bold mb-2" style="color: #fff;">欢迎回来，{{ username }}</h2>
+          <p style="color: rgba(255,255,255,0.85);">{{ todayDate }} — 来看看你的视频分析动态吧</p>
+        </div>
+        <div class="welcome-icon">
+          <el-icon :size="48" color="rgba(255,255,255,0.3)"><DataAnalysis /></el-icon>
+        </div>
+      </div>
     </div>
 
     <!-- Stats Grid -->
@@ -12,51 +19,51 @@
       <p class="mt-2 text-gray-500">Loading statistics...</p>
     </div>
     <div v-else class="grid grid-cols-4 gap-6 mb-8">
-      <el-card shadow="hover" class="stat-card border-none">
+      <el-card shadow="hover" class="stat-card stat-card-videos border-none">
         <div class="flex flex-col">
           <div class="flex items-center mb-2">
-            <div class="icon-bg bg-indigo-50 text-indigo-600 p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20"><VideoPlay /></el-icon>
+            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
+              <el-icon :size="20" color="#667eea"><VideoPlay /></el-icon>
             </div>
-            <div class="text-gray-500 font-medium text-sm"> Total Videos: </div>
+            <div class="stat-label font-medium text-sm">总视频数</div>
           </div>
-          <div class="text-3xl font-bold pl-1 text-gray-800">{{ formatNumber(stats.total_videos) }}</div>
+          <div class="text-3xl font-bold pl-1 stat-value">{{ formatNumber(stats.total_videos) }}</div>
         </div>
       </el-card>
 
-      <el-card shadow="hover" class="stat-card border-none">
+      <el-card shadow="hover" class="stat-card stat-card-comments border-none">
         <div class="flex flex-col">
           <div class="flex items-center mb-2">
-            <div class="icon-bg bg-emerald-50 text-emerald-600 p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20"><ChatLineSquare /></el-icon>
+            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
+              <el-icon :size="20" color="#f5576c"><ChatLineSquare /></el-icon>
             </div>
-            <div class="text-gray-500 font-medium text-sm"> Analyzed Comments: </div>
+            <div class="stat-label font-medium text-sm">分析评论</div>
           </div>
-          <div class="text-3xl font-bold pl-1 text-gray-800">{{ formatNumber(stats.total_comments) }}</div>
+          <div class="text-3xl font-bold pl-1 stat-value">{{ formatNumber(stats.total_comments) }}</div>
         </div>
       </el-card>
 
-      <el-card shadow="hover" class="stat-card border-none">
+      <el-card shadow="hover" class="stat-card stat-card-sentiment border-none">
         <div class="flex flex-col">
           <div class="flex items-center mb-2">
-            <div class="icon-bg bg-amber-50 text-amber-600 p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20"><Star /></el-icon>
+            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
+              <el-icon :size="20" color="#4facfe"><Star /></el-icon>
             </div>
-            <div class="text-gray-500 font-medium text-sm"> Avg Sentiment: </div>
+            <div class="stat-label font-medium text-sm">平均情感</div>
           </div>
-          <div class="text-3xl font-bold pl-1 text-gray-800">{{ stats.avg_sentiment?.toFixed(2) || '0.00' }}</div>
+          <div class="text-3xl font-bold pl-1 stat-value">{{ stats.avg_sentiment?.toFixed(2) || '0.00' }}</div>
         </div>
       </el-card>
 
-      <el-card shadow="hover" class="stat-card border-none">
+      <el-card shadow="hover" class="stat-card stat-card-tasks border-none">
         <div class="flex flex-col">
           <div class="flex items-center mb-2">
-            <div class="icon-bg bg-rose-50 text-rose-600 p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20"><DocumentChecked /></el-icon>
+            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
+              <el-icon :size="20" color="#43e97b"><DocumentChecked /></el-icon>
             </div>
-            <div class="text-gray-500 font-medium text-sm">Completed Tasks</div>
+            <div class="stat-label font-medium text-sm">已完成任务</div>
           </div>
-          <div class="text-3xl font-bold pl-1 text-gray-800">{{ stats.completed_tasks || 0 }}</div>
+          <div class="text-3xl font-bold pl-1 stat-value">{{ stats.completed_tasks || 0 }}</div>
         </div>
       </el-card>
     </div>
@@ -129,13 +136,16 @@
             <p class="text-xs text-gray-500">Update hot video data</p>
           </div>
 
-          <!-- Analysis Queue (Placeholder) -->
-          <div class="action-card bg-blue-50 hover:bg-blue-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group opacity-60">
-             <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 mb-3 shadow-sm">
-              <el-icon :size="24"><VideoPlay /></el-icon>
+          <!-- Export Report -->
+          <div
+            class="action-card bg-blue-50 hover:bg-blue-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group"
+            @click="exportReportCSV"
+          >
+             <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 mb-3 shadow-sm group-hover:scale-110 transition-transform">
+              <el-icon :size="24"><Download /></el-icon>
             </div>
-            <h3 class="font-semibold text-gray-700 mb-1">Queue</h3>
-            <p class="text-xs text-gray-500">Coming soon</p>
+            <h3 class="font-semibold text-gray-700 mb-1">导出报告</h3>
+            <p class="text-xs text-gray-500">下载CSV分析报告</p>
           </div>
 
           <!-- Export Report -->
@@ -153,12 +163,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
-import { VideoPlay, ChatLineSquare, Star, DocumentChecked, Loading, Plus, Compass, Download } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { VideoPlay, ChatLineSquare, Star, DocumentChecked, Loading, Plus, Compass, Download, DataAnalysis } from '@element-plus/icons-vue'
 import { getDashboardStats, getSentimentDistribution, getTopAspects, getTaskTrend, type DashboardStats } from '@/api/dashboard'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import axios from 'axios'
+import request from '@/utils/request'
+
+// Parse username from JWT in localStorage
+const username = computed(() => {
+  try {
+    const token = localStorage.getItem('token') || ''
+    if (token) {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.sub || payload.username || '用户'
+    }
+  } catch (_) { /* ignore */ }
+  return '用户'
+})
+
+const todayDate = computed(() => {
+  const d = new Date()
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+})
 
 const isLoading = ref(false)
 const isScraping = ref(false)
@@ -168,16 +195,15 @@ const sentimentChartRef = ref<HTMLElement | null>(null)
 const triggerPopularScrape = async () => {
   if (isScraping.value) return
   isScraping.value = true
-  ElMessage.info('Started fetching popular videos...')
+  ElMessage.info('正在抓取热门视频...')
   try {
-    // Assuming Python service is on 8001
-    await axios.post('http://localhost:8001/api/popular/fetch?pages=5')
-    ElMessage.success('Popular videos fetch task started!')
+    await request.post('/insight/popular-videos/fetch?pages=5')
+    ElMessage.success('热门视频抓取任务已启动！')
   } catch (e) {
     console.error(e)
-    ElMessage.error('Failed to start fetch task. Is Python service running?')
+    ElMessage.error('启动抓取任务失败，请检查服务是否运行')
   } finally {
-    setTimeout(() => { isScraping.value = false }, 2000) // Reset loading state after a delay
+    setTimeout(() => { isScraping.value = false }, 2000)
   }
 }
 
@@ -288,6 +314,29 @@ const formatNumber = (num?: number) => {
   return String(num)
 }
 
+const exportReportCSV = () => {
+  const rows = [
+    ['指标', '数值'],
+    ['总视频数', String(stats.value.total_videos || 0)],
+    ['总评论数', String(stats.value.total_comments || 0)],
+    ['平均情感分', String(stats.value.avg_sentiment?.toFixed(2) || '0.00')],
+    ['已完成任务', String(stats.value.completed_tasks || 0)],
+    ['总任务数', String(stats.value.total_tasks || 0)],
+    [],
+    ['热门切面', '出现次数'],
+    ...topAspects.value.map(a => [a.aspect, String(a.count)])
+  ]
+  const csvContent = '\uFEFF' + rows.map(r => r.join(',')).join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `bili-insight-report-${new Date().toISOString().split('T')[0]}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('报告已导出')
+}
+
 onMounted(() => {
   fetchStats()
 })
@@ -339,13 +388,63 @@ onMounted(() => {
   border-radius: var(--radius-xl);
 }
 
+.welcome-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 28px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-banner::after {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -5%;
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+.welcome-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.welcome-icon {
+  opacity: 0.7;
+}
+
 .stat-card {
   border-radius: var(--radius-xl);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card-videos :deep(.el-card__body) { background: linear-gradient(135deg, #667eea, #764ba2); border-radius: var(--radius-xl); }
+.stat-card-comments :deep(.el-card__body) { background: linear-gradient(135deg, #f093fb, #f5576c); border-radius: var(--radius-xl); }
+.stat-card-sentiment :deep(.el-card__body) { background: linear-gradient(135deg, #4facfe, #00f2fe); border-radius: var(--radius-xl); }
+.stat-card-tasks :deep(.el-card__body) { background: linear-gradient(135deg, #43e97b, #38f9d7); border-radius: var(--radius-xl); }
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stat-value {
+  color: #ffffff;
+}
+
+.stat-icon-bg {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
 }
 
 .keyword-item {
