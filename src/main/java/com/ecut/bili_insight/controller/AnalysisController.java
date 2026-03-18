@@ -3,13 +3,17 @@ package com.ecut.bili_insight.controller;
 import com.ecut.bili_insight.constant.Result;
 import com.ecut.bili_insight.constant.ResultCode;
 import com.ecut.bili_insight.entity.AnalysisTask;
+import com.ecut.bili_insight.entity.User;
 import com.ecut.bili_insight.entity.VideoComment;
 import com.ecut.bili_insight.entity.VideoDanmaku;
 import com.ecut.bili_insight.entity.SentimentTimeline;
+import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -29,6 +33,27 @@ public class AnalysisController {
     @Autowired
     private IAnalysisTaskService analysisTaskService;
 
+    @Autowired
+    private UserMapper userMapper;
+
+    /** 获取当前登录用户（含B站凭证） */
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return null;
+        return userMapper.findByUsername(auth.getName());
+    }
+
+    private Long getCurrentUserId() {
+        User user = getCurrentUser();
+        return user != null ? user.getId() : null;
+    }
+
+    /** 获取当前用户绑定的 B站 SESSDATA（可为null） */
+    private String getCurrentUserSessdata() {
+        User user = getCurrentUser();
+        return user != null ? user.getBiliSessdata() : null;
+    }
+
     /**
      * 提交视频分析任务
      * 
@@ -45,8 +70,8 @@ public class AnalysisController {
                 return Result.failed(ResultCode.FAILED, "BVID不能为空");
             }
 
-            // 提交任务
-            String taskId = analysisTaskService.submitAnalysisTask(bvid);
+            // 提交任务，携带当前用户的B站凭证（若已绑定）
+            String taskId = analysisTaskService.submitAnalysisTask(bvid, getCurrentUserId(), getCurrentUserSessdata());
 
             Map<String, Object> response = new HashMap<>();
             response.put("task_id", taskId);
@@ -123,7 +148,7 @@ public class AnalysisController {
         logger.debug("Received request for recent tasks, limit: {}", limit);
 
         try {
-            List<AnalysisTask> tasks = analysisTaskService.getRecentTasks(limit);
+            List<AnalysisTask> tasks = analysisTaskService.getRecentTasks(limit, getCurrentUserId());
             return Result.success(tasks);
 
         } catch (Exception e) {

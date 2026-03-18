@@ -14,12 +14,24 @@ import java.util.Map;
 public interface IAnalysisTaskService {
 
     /**
-     * 提交视频分析任务
-     * 
-     * @param bvid 视频BVID
+     * 提交视频分析任务（若已有 COMPLETED 任务则复用）
+     *
+     * @param bvid      视频BVID
+     * @param userId    提交用户ID
+     * @param sessdata  用户的B站SESSDATA（可为null，Python将使用全局凭证）
      * @return 任务ID
      */
-    String submitAnalysisTask(String bvid);
+    String submitAnalysisTask(String bvid, Long userId, String sessdata);
+
+    /**
+     * 强制重新分析（忽略已有 COMPLETED 任务，始终创建新任务）
+     *
+     * @param bvid      视频BVID
+     * @param userId    所属用户ID
+     * @param sessdata  用户的B站SESSDATA（可为null）
+     * @return 新任务ID
+     */
+    String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata);
 
     /**
      * 查询任务状态
@@ -73,10 +85,11 @@ public interface IAnalysisTaskService {
     SentimentTimeline getTimeline(String taskId);
 
     /**
-     * 获取最近的任务列表
-     * 
-     * @param limit 限制数量
+     * 获取最近的任务列表（按用户过滤）
+     *
+     * @param limit  限制数量
+     * @param userId 用户ID，null 时返回全局
      * @return 任务列表
      */
-    List<AnalysisTask> getRecentTasks(int limit);
+    List<AnalysisTask> getRecentTasks(int limit, Long userId);
 }

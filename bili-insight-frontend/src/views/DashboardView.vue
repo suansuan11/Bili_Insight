@@ -1,176 +1,171 @@
 <template>
-  <div class="dashboard-view">
-    <!-- Welcome Banner -->
-    <div class="welcome-banner mb-8">
-      <div class="welcome-content">
-        <div>
-          <h2 class="text-2xl font-bold mb-2" style="color: #fff;">欢迎回来，{{ username }}</h2>
-          <p style="color: rgba(255,255,255,0.85);">{{ todayDate }} — 来看看你的视频分析动态吧</p>
+  <div class="dashboard">
+    <!-- Page Title Row -->
+    <div class="page-title-row">
+      <div>
+        <h1 class="page-title">数据概览</h1>
+        <p class="page-subtitle">{{ todayDate }}，欢迎回来，<strong>{{ username }}</strong></p>
+      </div>
+      <el-button type="primary" plain size="small" @click="exportReportCSV">
+        <el-icon><Download /></el-icon>
+        导出报告
+      </el-button>
+    </div>
+
+    <!-- Stat Cards -->
+    <div v-if="isLoading" class="loading-row">
+      <el-icon class="spin" :size="28"><Loading /></el-icon>
+    </div>
+    <div v-else class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--blue">
+          <el-icon :size="20"><VideoPlay /></el-icon>
         </div>
-        <div class="welcome-icon">
-          <el-icon :size="48" color="rgba(255,255,255,0.3)"><DataAnalysis /></el-icon>
+        <div class="stat-body">
+          <span class="stat-value">{{ formatNumber(stats.total_videos) }}</span>
+          <span class="stat-label">视频总数</span>
         </div>
+        <div class="stat-trend stat-trend--blue"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--violet">
+          <el-icon :size="20"><ChatLineSquare /></el-icon>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ formatNumber(stats.total_comments) }}</span>
+          <span class="stat-label">已分析评论</span>
+        </div>
+        <div class="stat-trend stat-trend--violet"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--green">
+          <el-icon :size="20"><Star /></el-icon>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ stats.avg_sentiment?.toFixed(2) || '0.00' }}</span>
+          <span class="stat-label">平均情感分</span>
+        </div>
+        <div class="stat-trend stat-trend--green"></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--amber">
+          <el-icon :size="20"><DocumentChecked /></el-icon>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ stats.completed_tasks || 0 }}
+            <span class="stat-sub">/ {{ stats.total_tasks || 0 }}</span>
+          </span>
+          <span class="stat-label">已完成任务</span>
+        </div>
+        <div class="stat-trend stat-trend--amber"></div>
       </div>
     </div>
 
-    <!-- Stats Grid -->
-    <div v-if="isLoading" class="text-center py-8">
-      <el-icon class="is-loading" size="32"><Loading /></el-icon>
-      <p class="mt-2 text-gray-500">Loading statistics...</p>
-    </div>
-    <div v-else class="grid grid-cols-4 gap-6 mb-8">
-      <el-card shadow="hover" class="stat-card stat-card-videos border-none">
-        <div class="flex flex-col">
-          <div class="flex items-center mb-2">
-            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20" color="#667eea"><VideoPlay /></el-icon>
-            </div>
-            <div class="stat-label font-medium text-sm">总视频数</div>
-          </div>
-          <div class="text-3xl font-bold pl-1 stat-value">{{ formatNumber(stats.total_videos) }}</div>
+    <!-- Charts Row -->
+    <div class="charts-row">
+      <!-- Trend Chart -->
+      <div class="chart-card chart-card--wide">
+        <div class="chart-header">
+          <span class="chart-title">任务趋势（近7天）</span>
+          <button class="chart-link" @click="$router.push('/analysis')">查看全部 →</button>
         </div>
-      </el-card>
+        <div ref="trendChartRef" class="chart-body"></div>
+      </div>
 
-      <el-card shadow="hover" class="stat-card stat-card-comments border-none">
-        <div class="flex flex-col">
-          <div class="flex items-center mb-2">
-            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20" color="#f5576c"><ChatLineSquare /></el-icon>
-            </div>
-            <div class="stat-label font-medium text-sm">分析评论</div>
-          </div>
-          <div class="text-3xl font-bold pl-1 stat-value">{{ formatNumber(stats.total_comments) }}</div>
+      <!-- Top Aspects -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">热门切面关键词</span>
         </div>
-      </el-card>
-
-      <el-card shadow="hover" class="stat-card stat-card-sentiment border-none">
-        <div class="flex flex-col">
-          <div class="flex items-center mb-2">
-            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20" color="#4facfe"><Star /></el-icon>
+        <div v-if="topAspects.length > 0" class="aspects-list">
+          <div v-for="(item, index) in topAspects" :key="index" class="aspect-row">
+            <div class="aspect-left">
+              <span class="aspect-rank" :class="`rank-${Math.min(index + 1, 3)}`">{{ index + 1 }}</span>
+              <span class="aspect-name">{{ item.aspect }}</span>
             </div>
-            <div class="stat-label font-medium text-sm">平均情感</div>
+            <span class="aspect-count">{{ item.count }}</span>
           </div>
-          <div class="text-3xl font-bold pl-1 stat-value">{{ stats.avg_sentiment?.toFixed(2) || '0.00' }}</div>
         </div>
-      </el-card>
-
-      <el-card shadow="hover" class="stat-card stat-card-tasks border-none">
-        <div class="flex flex-col">
-          <div class="flex items-center mb-2">
-            <div class="stat-icon-bg p-2 rounded-lg mr-3 flex items-center justify-center w-10 h-10">
-              <el-icon :size="20" color="#43e97b"><DocumentChecked /></el-icon>
-            </div>
-            <div class="stat-label font-medium text-sm">已完成任务</div>
-          </div>
-          <div class="text-3xl font-bold pl-1 stat-value">{{ stats.completed_tasks || 0 }}</div>
-        </div>
-      </el-card>
+        <el-empty v-else :image-size="56" description="暂无数据" />
+      </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-3 gap-6">
-      <el-card shadow="never" class="col-span-2 border-none glass-card">
-        <template #header>
-          <div class="flex justify-between items-center">
-            <span class="font-bold text-gray-700">Analysis Task Trend</span>
-            <el-button link type="primary" @click="$router.push('/analysis')">View All Tasks</el-button>
-          </div>
-        </template>
-        <div ref="trendChartRef" class="h-64"></div>
-      </el-card>
+    <!-- Second Row -->
+    <div class="charts-row">
+      <!-- Sentiment Pie -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">情感分布</span>
+        </div>
+        <div ref="sentimentChartRef" class="chart-body"></div>
+      </div>
 
-      <el-card shadow="never" class="border-none glass-card">
-        <template #header>
-          <span class="font-bold text-gray-700">Top Keywords / Aspects</span>
-        </template>
-        <div v-if="topAspects.length > 0" class="space-y-4">
-          <div v-for="(item, index) in topAspects" :key="index" class="flex justify-between items-center keyword-item">
-            <div class="flex items-center">
-              <span class="rank-tag mr-2" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
-              <span class="text-gray-600 font-medium">{{ item.aspect }}</span>
+      <!-- Quick Actions -->
+      <div class="chart-card chart-card--wide">
+        <div class="chart-header">
+          <span class="chart-title">快捷操作</span>
+        </div>
+        <div class="actions-grid">
+          <div class="action-item" @click="$router.push('/analysis')">
+            <div class="action-icon action-icon--blue">
+              <el-icon :size="20"><Plus /></el-icon>
             </div>
-            <el-tag size="small" round effect="plain">{{ item.count }} hits</el-tag>
+            <div class="action-text">
+              <p class="action-name">新建分析</p>
+              <p class="action-desc">提交视频 BVID 开始分析</p>
+            </div>
+          </div>
+
+          <div class="action-item" @click="triggerPopularScrape" v-loading="isScraping">
+            <div class="action-icon action-icon--green">
+              <el-icon :size="20"><Compass /></el-icon>
+            </div>
+            <div class="action-text">
+              <p class="action-name">抓取热门</p>
+              <p class="action-desc">更新 B 站热门视频数据</p>
+            </div>
+          </div>
+
+          <div class="action-item" @click="$router.push('/projects')">
+            <div class="action-icon action-icon--violet">
+              <el-icon :size="20"><Monitor /></el-icon>
+            </div>
+            <div class="action-text">
+              <p class="action-name">监测项目</p>
+              <p class="action-desc">管理品牌监控项目</p>
+            </div>
+          </div>
+
+          <div class="action-item" @click="$router.push('/popular')">
+            <div class="action-icon action-icon--amber">
+              <el-icon :size="20"><TrendCharts /></el-icon>
+            </div>
+            <div class="action-text">
+              <p class="action-name">热门榜单</p>
+              <p class="action-desc">浏览当前最热视频</p>
+            </div>
           </div>
         </div>
-        <el-empty v-else :image-size="60" description="No keywords found" />
-      </el-card>
-    </div>
-
-    <!-- Second row of charts -->
-    <div class="grid grid-cols-2 gap-6 mt-6">
-      <el-card shadow="never" class="border-none glass-card">
-        <template #header>
-          <span class="font-bold text-gray-700">Global Sentiment Distribution</span>
-        </template>
-        <div ref="sentimentChartRef" class="h-64"></div>
-      </el-card>
-
-      <el-card shadow="never" class="border-none glass-card">
-        <template #header>
-          <span class="font-bold text-gray-700">Quick Actions</span>
-        </template>
-        <div class="grid grid-cols-2 gap-4 py-2">
-          <!-- New Analysis -->
-          <div 
-            class="action-card bg-indigo-50 hover:bg-indigo-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group"
-            @click="$router.push('/analysis')"
-          >
-            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-indigo-600 mb-3 shadow-sm group-hover:scale-110 transition-transform">
-              <el-icon :size="24"><Plus /></el-icon>
-            </div>
-            <h3 class="font-semibold text-gray-700 mb-1">New Analysis</h3>
-            <p class="text-xs text-gray-500">Analyze a specific video</p>
-          </div>
-
-          <!-- Explore Popular -->
-          <div 
-            class="action-card bg-emerald-50 hover:bg-emerald-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group"
-            @click="triggerPopularScrape"
-            v-loading="isScraping"
-          >
-            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-600 mb-3 shadow-sm group-hover:scale-110 transition-transform">
-              <el-icon :size="24"><Compass /></el-icon>
-            </div>
-            <h3 class="font-semibold text-gray-700 mb-1">Fetch Popular</h3>
-            <p class="text-xs text-gray-500">Update hot video data</p>
-          </div>
-
-          <!-- Export Report -->
-          <div
-            class="action-card bg-blue-50 hover:bg-blue-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group"
-            @click="exportReportCSV"
-          >
-             <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 mb-3 shadow-sm group-hover:scale-110 transition-transform">
-              <el-icon :size="24"><Download /></el-icon>
-            </div>
-            <h3 class="font-semibold text-gray-700 mb-1">导出报告</h3>
-            <p class="text-xs text-gray-500">下载CSV分析报告</p>
-          </div>
-
-          <!-- Export Report -->
-          <div class="action-card bg-amber-50 hover:bg-amber-100 cursor-pointer p-4 rounded-xl flex flex-col justify-center items-center text-center transition-all group">
-             <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-amber-500 mb-3 shadow-sm group-hover:scale-110 transition-transform">
-              <el-icon :size="24"><Download /></el-icon>
-            </div>
-            <h3 class="font-semibold text-gray-700 mb-1">Export</h3>
-            <p class="text-xs text-gray-500">Download report</p>
-          </div>
-        </div>
-      </el-card>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { VideoPlay, ChatLineSquare, Star, DocumentChecked, Loading, Plus, Compass, Download, DataAnalysis } from '@element-plus/icons-vue'
+import {
+  VideoPlay, ChatLineSquare, Star, DocumentChecked,
+  Loading, Plus, Compass, Download, DataAnalysis,
+  Monitor, TrendCharts
+} from '@element-plus/icons-vue'
 import { getDashboardStats, getSentimentDistribution, getTopAspects, getTaskTrend, type DashboardStats } from '@/api/dashboard'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import request from '@/utils/request'
 
-// Parse username from JWT in localStorage
 const username = computed(() => {
   try {
     const token = localStorage.getItem('token') || ''
@@ -200,7 +195,6 @@ const triggerPopularScrape = async () => {
     await request.post('/insight/popular-videos/fetch?pages=5')
     ElMessage.success('热门视频抓取任务已启动！')
   } catch (e) {
-    console.error(e)
     ElMessage.error('启动抓取任务失败，请检查服务是否运行')
   } finally {
     setTimeout(() => { isScraping.value = false }, 2000)
@@ -231,13 +225,12 @@ const fetchStats = async () => {
     if (aspectsRes.code === 0) topAspects.value = aspectsRes.data
 
     await nextTick()
-    
+
     if (trendRes.code === 0) renderTrendChart(trendRes.data)
     if (sentimentRes.code === 0) renderSentimentChart(sentimentRes.data)
 
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error)
-    ElMessage.error('Failed to load dashboard data')
   } finally {
     isLoading.value = false
   }
@@ -246,70 +239,73 @@ const fetchStats = async () => {
 const renderTrendChart = (data: { date: string, count: number }[]) => {
   if (!trendChartRef.value) return
   const chart = echarts.init(trendChartRef.value)
-  const option = {
-    tooltip: { trigger: 'axis' },
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  chart.setOption({
+    tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#334155', textStyle: { color: '#f1f5f9' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '8%', containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       data: data.map(i => i.date.split('T')[0] || i.date),
-      axisLine: { lineStyle: { color: '#e5e7eb' } },
-      axisLabel: { color: '#9ca3af' }
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLabel: { color: '#94a3b8', fontSize: 12 }
     },
     yAxis: {
       type: 'value',
+      minInterval: 1,
       axisLine: { show: false },
-      splitLine: { lineStyle: { type: 'dashed', color: '#f3f4f6' } },
-      axisLabel: { color: '#9ca3af' }
+      splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
+      axisLabel: { color: '#94a3b8', fontSize: 12 }
     },
     series: [{
-      name: 'Created Tasks',
+      name: '创建任务',
       type: 'line',
       smooth: true,
       data: data.map(i => i.count),
+      symbol: 'circle',
+      symbolSize: 6,
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(79, 70, 229, 0.2)' },
-          { offset: 1, color: 'rgba(79, 70, 229, 0)' }
+          { offset: 0, color: 'rgba(37, 99, 235, 0.15)' },
+          { offset: 1, color: 'rgba(37, 99, 235, 0)' }
         ])
       },
-      itemStyle: { color: '#4f46e5' },
-      lineStyle: { width: 3 }
+      itemStyle: { color: '#2563eb' },
+      lineStyle: { width: 2.5, color: '#2563eb' }
     }]
-  }
-  chart.setOption(option)
+  })
 }
 
 const renderSentimentChart = (data: Record<string, number>) => {
   if (!sentimentChartRef.value) return
   const chart = echarts.init(sentimentChartRef.value)
-  
+
   const pieData = [
-    { value: data.POSITIVE || 0, name: 'Positive', itemStyle: { color: '#10b981' } },
-    { value: data.NEUTRAL || 0, name: 'Neutral', itemStyle: { color: '#fbbf24' } },
-    { value: data.NEGATIVE || 0, name: 'Negative', itemStyle: { color: '#ef4444' } }
+    { value: data.POSITIVE || 0, name: '正面', itemStyle: { color: '#16a34a' } },
+    { value: data.NEUTRAL || 0, name: '中性', itemStyle: { color: '#d97706' } },
+    { value: data.NEGATIVE || 0, name: '负面', itemStyle: { color: '#dc2626' } }
   ].filter(i => i.value > 0)
 
-  const option = {
-    tooltip: { trigger: 'item' },
-    legend: { bottom: '5%', left: 'center' },
+  chart.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)', backgroundColor: '#1e293b', borderColor: '#334155', textStyle: { color: '#f1f5f9' } },
+    legend: { bottom: '5%', left: 'center', textStyle: { color: '#64748b', fontSize: 12 } },
     series: [{
-      name: 'Sentiment',
+      name: '情感分布',
       type: 'pie',
-      radius: ['40%', '70%'],
+      radius: ['44%', '70%'],
+      center: ['50%', '44%'],
       avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-      label: { show: false, position: 'center' },
-      emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
+      itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 15, fontWeight: 'bold', color: '#0f172a' } },
       data: pieData
     }]
-  }
-  chart.setOption(option)
+  })
 }
 
 const formatNumber = (num?: number) => {
   if (!num) return '0'
   if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`
+  if (num >= 1e4) return `${(num / 1e4).toFixed(1)}万`
   if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`
   return String(num)
 }
@@ -343,143 +339,309 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.grid { display: grid; }
-.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.col-span-2 { grid-column: span 2 / span 2; }
-.gap-6 { gap: 1.5rem; }
-.mb-8 { margin-bottom: 2rem; }
-.mt-6 { margin-top: 1.5rem; }
-.flex { display: flex; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.flex-col { flex-direction: column; }
-.p-2 { padding: 0.5rem; }
-.mr-3 { margin-right: 0.75rem; }
-.mr-2 { margin-right: 0.5rem; }
-.pl-1 { padding-left: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-.w-10 { width: 2.5rem; }
-.h-10 { height: 2.5rem; }
-.h-64 { height: 16rem; }
-.text-2xl { font-size: 1.5rem; }
-.text-3xl { font-size: 1.875rem; }
-.text-sm { font-size: 0.875rem; }
-.font-bold { font-weight: 700; }
-.font-medium { font-weight: 500; }
-.text-gray-500 { color: #6b7280; }
-.text-gray-600 { color: #4b5563; }
-.text-gray-700 { color: #374151; }
-.bg-indigo-50 { background-color: #eef2ff; }
-.bg-emerald-50 { background-color: #ecfdf5; }
-.bg-amber-50 { background-color: #fffbeb; }
-.bg-rose-50 { background-color: #fff1f2; }
-.text-indigo-600 { color: #4f46e5; }
-.text-emerald-600 { color: #10b981; }
-.text-amber-600 { color: #d97706; }
-.text-rose-600 { color: #e11d48; }
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-xl);
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
-.welcome-banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
-  padding: 28px 32px;
-  position: relative;
-  overflow: hidden;
-}
-
-.welcome-banner::after {
-  content: '';
-  position: absolute;
-  top: -30%;
-  right: -5%;
-  width: 200px;
-  height: 200px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-}
-
-.welcome-content {
+/* Page title */
+.page-title-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  position: relative;
-  z-index: 1;
+  align-items: flex-end;
 }
 
-.welcome-icon {
-  opacity: 0.7;
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  margin: 0 0 4px 0;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Loading */
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+  color: #94a3b8;
+}
+
+.spin {
+  animation: spin 1.4s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Stat Cards ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
 }
 
 .stat-card {
-  border-radius: var(--radius-xl);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
-.stat-card-videos :deep(.el-card__body) { background: linear-gradient(135deg, #667eea, #764ba2); border-radius: var(--radius-xl); }
-.stat-card-comments :deep(.el-card__body) { background: linear-gradient(135deg, #f093fb, #f5576c); border-radius: var(--radius-xl); }
-.stat-card-sentiment :deep(.el-card__body) { background: linear-gradient(135deg, #4facfe, #00f2fe); border-radius: var(--radius-xl); }
-.stat-card-tasks :deep(.el-card__body) { background: linear-gradient(135deg, #43e97b, #38f9d7); border-radius: var(--radius-xl); }
+.stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 
-.stat-label {
-  color: rgba(255, 255, 255, 0.85);
+.stat-icon--blue   { background: #eff6ff; color: #2563eb; }
+.stat-icon--violet { background: #f5f3ff; color: #7c3aed; }
+.stat-icon--green  { background: #f0fdf4; color: #16a34a; }
+.stat-icon--amber  { background: #fffbeb; color: #d97706; }
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
 }
 
 .stat-value {
-  color: #ffffff;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  line-height: 1.1;
 }
 
-.stat-icon-bg {
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 10px;
+.stat-sub {
+  font-size: 14px;
+  color: var(--color-text-light);
+  font-weight: 400;
 }
 
-.keyword-item {
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  transition: background-color 0.2s;
+.stat-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
-.keyword-item:hover {
-  background-color: rgba(79, 70, 229, 0.05);
+/* Colored accent line on the right edge */
+.stat-trend {
+  position: absolute;
+  right: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 2px;
 }
 
-.rank-tag {
-  display: inline-flex;
-  width: 20px;
-  height: 20px;
+.stat-trend--blue   { background: #2563eb; }
+.stat-trend--violet { background: #7c3aed; }
+.stat-trend--green  { background: #16a34a; }
+.stat-trend--amber  { background: #d97706; }
+
+/* ===== Charts ===== */
+.charts-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.chart-card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.chart-card--wide {
+  /* already 2fr from parent grid */
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.chart-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+.chart-link {
+  font-size: 13px;
+  color: #2563eb;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.chart-link:hover {
+  color: #1d4ed8;
+}
+
+.chart-body {
+  height: 220px;
+}
+
+/* Aspects list */
+.aspects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aspect-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.aspect-row:hover {
+  background: #f8fafc;
+}
+
+.aspect-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aspect-rank {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
   font-size: 11px;
-  font-weight: bold;
+  font-weight: 700;
   color: white;
-  background: #d1d5db;
+  background: #cbd5e1;
+  flex-shrink: 0;
 }
 
-.rank-1 { background: #fbbf24; }
+.rank-1 { background: #f59e0b; }
 .rank-2 { background: #94a3b8; }
-.rank-3 { background: #b45309; }
+.rank-3 { background: #b87333; }
 
-.is-loading {
-  animation: rotating 2s linear infinite;
+.aspect-name {
+  font-size: 14px;
+  color: var(--color-text-main);
+  font-weight: 500;
 }
 
-@keyframes rotating {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.aspect-count {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* ===== Quick Actions ===== */
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.action-item:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.action-icon--blue   { background: #eff6ff; color: #2563eb; }
+.action-icon--green  { background: #f0fdf4; color: #16a34a; }
+.action-icon--violet { background: #f5f3ff; color: #7c3aed; }
+.action-icon--amber  { background: #fffbeb; color: #d97706; }
+
+.action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  margin: 0;
+}
+
+.action-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -59,10 +59,11 @@ public interface AnalysisTaskMapper {
             @Param("currentStep") String currentStep);
 
     /**
-     * 查询最近的任务
-     * 
-     * @param limit 限制数量
+     * 查询最近的任务（按用户过滤）
+     *
+     * @param userId 用户ID，null 时返回全局
+     * @param limit  限制数量
      * @return 任务列表
      */
-    java.util.List<AnalysisTask> findRecent(@Param("limit") int limit);
+    java.util.List<AnalysisTask> findRecent(@Param("userId") Long userId, @Param("limit") int limit);
 }

@@ -2,50 +2,84 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ecut.bili_insight.mapper.DashboardMapper">
 
+    <!-- 热门视频总数：平台全局，不按用户过滤 -->
     <select id="getTotalVideos" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM popular_videos
     </select>
 
+    <!-- 当前用户分析过的视频的评论总数 -->
     <select id="getTotalComments" resultType="java.lang.Integer">
-        SELECT COUNT(*) FROM video_comment
+        SELECT COUNT(*)
+        FROM video_comment vc
+        INNER JOIN analysis_task at ON vc.task_id = at.task_id
+        <where>
+            <if test="userId != null">at.user_id = #{userId}</if>
+        </where>
     </select>
 
+    <!-- 当前用户分析过的视频的平均情感得分 -->
     <select id="getAvgSentiment" resultType="java.lang.Double">
-        SELECT AVG(CASE 
-            WHEN sentiment_label = 'POSITIVE' THEN 1.0 
-            WHEN sentiment_label = 'NEGATIVE' THEN -1.0 
-            ELSE 0 
-        END) FROM video_comment
+        SELECT AVG(CASE
+            WHEN vc.sentiment_label = 'POSITIVE' THEN 1.0
+            WHEN vc.sentiment_label = 'NEGATIVE' THEN -1.0
+            ELSE 0
+        END)
+        FROM video_comment vc
+        INNER JOIN analysis_task at ON vc.task_id = at.task_id
+        <where>
+            <if test="userId != null">at.user_id = #{userId}</if>
+        </where>
     </select>
 
+    <!-- 当前用户的任务总数 -->
     <select id="getTotalTasks" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM analysis_task
+        <where>
+            <if test="userId != null">user_id = #{userId}</if>
+        </where>
     </select>
 
+    <!-- 当前用户已完成的任务数 -->
     <select id="getCompletedTasks" resultType="java.lang.Integer">
-        SELECT COUNT(*) FROM analysis_task WHERE status = 'COMPLETED'
+        SELECT COUNT(*) FROM analysis_task
+        <where>
+            status = 'COMPLETED'
+            <if test="userId != null">AND user_id = #{userId}</if>
+        </where>
     </select>
 
+    <!-- 当前用户评论的情感分布 -->
     <select id="getSentimentDistribution" resultType="java.util.Map">
-        SELECT sentiment_label, COUNT(*) as count 
-        FROM video_comment 
-        GROUP BY sentiment_label
+        SELECT vc.sentiment_label, COUNT(*) as count
+        FROM video_comment vc
+        INNER JOIN analysis_task at ON vc.task_id = at.task_id
+        <where>
+            <if test="userId != null">at.user_id = #{userId}</if>
+        </where>
+        GROUP BY vc.sentiment_label
     </select>
 
+    <!-- 当前用户评论中出现最多的维度 -->
     <select id="getTopAspects" resultType="java.util.Map">
-        SELECT aspect, COUNT(*) as count 
-        FROM video_comment 
-        WHERE aspect != '' AND aspect IS NOT NULL 
-        GROUP BY aspect 
-        ORDER BY count DESC 
+        SELECT vc.aspect, COUNT(*) as count
+        FROM video_comment vc
+        INNER JOIN analysis_task at ON vc.task_id = at.task_id
+        WHERE vc.aspect IS NOT NULL AND vc.aspect != ''
+        <if test="userId != null">AND at.user_id = #{userId}</if>
+        GROUP BY vc.aspect
+        ORDER BY count DESC
         LIMIT 10
     </select>
 
+    <!-- 当前用户最近7天的任务趋势 -->
     <select id="getTaskTrend" resultType="java.util.Map">
-        SELECT DATE(created_at) as date, COUNT(*) as count 
-        FROM analysis_task 
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
-        GROUP BY DATE(created_at) 
+        SELECT DATE(created_at) as date, COUNT(*) as count
+        FROM analysis_task
+        <where>
+            created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            <if test="userId != null">AND user_id = #{userId}</if>
+        </where>
+        GROUP BY DATE(created_at)
         ORDER BY date ASC
     </select>
 

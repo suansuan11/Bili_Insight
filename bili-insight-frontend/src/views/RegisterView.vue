@@ -175,7 +175,7 @@ const rules: FormRules = {
     { min: 6, message: '密码至少6个字符', trigger: 'blur' },
   ],
   email: [
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur', required: false },
   ],
 }
 
@@ -190,8 +190,16 @@ const handleRegister = async () => {
     ElMessage.success('注册成功，请登录')
     router.push('/login')
   } catch (error: any) {
-    const msg = error.response?.data || error.message || '注册失败'
-    ElMessage.error(typeof msg === 'string' ? msg : '注册失败')
+    const data = error.response?.data
+    let msg = '注册失败，请重试'
+    if (typeof data === 'string' && data.length < 100) {
+      msg = data
+    } else if (data?.message) {
+      msg = data.message
+    } else if (error.message?.includes('Network')) {
+      msg = '无法连接到服务器，请检查后端是否启动'
+    }
+    ElMessage.error(msg)
   } finally {
     loading.value = false
   }
@@ -210,7 +218,7 @@ const handleRegister = async () => {
 .showcase-panel {
   position: relative;
   width: 55%;
-  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,15 +265,15 @@ const handleRegister = async () => {
 
 .feature-icon {
   flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #00d2ff;
+  color: #60a5fa;
 }
 
 .feature-text h3 {
@@ -301,7 +309,7 @@ const handleRegister = async () => {
   height: 400px;
   top: -100px;
   right: -80px;
-  background: radial-gradient(circle, rgba(0, 210, 255, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, transparent 70%);
 }
 
 .circle-2 {
@@ -309,7 +317,7 @@ const handleRegister = async () => {
   height: 300px;
   bottom: -60px;
   left: -60px;
-  background: radial-gradient(circle, rgba(118, 75, 162, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
 }
 
 .circle-3 {
@@ -317,7 +325,7 @@ const handleRegister = async () => {
   height: 200px;
   top: 50%;
   right: 10%;
-  background: radial-gradient(circle, rgba(0, 210, 255, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.07) 0%, transparent 70%);
 }
 
 /* ===== Right Form Panel ===== */
@@ -397,19 +405,19 @@ const handleRegister = async () => {
 }
 
 .role-card.active {
-  border-color: #409eff;
-  background: #ecf5ff;
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .role-card-icon {
-  color: #909399;
+  color: #94a3b8;
   margin-bottom: 10px;
   transition: color 0.25s ease;
 }
 
 .role-card.active .role-card-icon {
-  color: #409eff;
+  color: #2563eb;
 }
 
 .role-card-title {
@@ -425,7 +433,7 @@ const handleRegister = async () => {
 }
 
 .role-card.active .role-card-title {
-  color: #409eff;
+  color: #2563eb;
 }
 
 /* ===== Submit & Footer ===== */

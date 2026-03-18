@@ -70,13 +70,13 @@ class VideoStorageService:
             conn.close()
 
     async def update_task_progress(self, task_id: str, progress: int, current_step: str):
-        """更新任务进度"""
+        """更新任务进度，同时将状态置为 RUNNING"""
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
                 sql = """
                     UPDATE analysis_task
-                    SET progress = %s, current_step = %s
+                    SET progress = %s, current_step = %s, status = 'RUNNING'
                     WHERE task_id = %s
                 """
                 cursor.execute(sql, (progress, current_step, task_id))

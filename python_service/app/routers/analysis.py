@@ -21,6 +21,7 @@ class AnalyzeVideoRequest(BaseModel):
     bvid: str
     max_comments: int = 500
     sessdata: Optional[str] = None
+    task_id: Optional[str] = None  # Java 侧传来的 task_id；存在时直接使用，不再自行创建
 
 
 class TaskResponse(BaseModel):
@@ -111,9 +112,13 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
         credential_manager = get_credential_manager()
         credential = credential_manager.get_credential(request.sessdata)
 
-        # 创建任务
+        # 若 Java 侧已创建任务记录并传来 task_id，直接使用；否则自行创建
         storage_service = VideoStorageService()
-        task_id = await storage_service.create_task(request.bvid, task_type="FULL_ANALYSIS")
+        if request.task_id:
+            task_id = request.task_id
+            await storage_service.update_task_progress(task_id, 0, "任务已接收，准备开始")
+        else:
+            task_id = await storage_service.create_task(request.bvid, task_type="FULL_ANALYSIS")
 
         # 添加后台任务
         background_tasks.add_task(

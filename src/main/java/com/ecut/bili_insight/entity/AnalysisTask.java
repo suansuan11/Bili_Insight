@@ -16,6 +16,11 @@ public class AnalysisTask {
     private String taskId;
 
     /**
+     * 提交任务的用户ID
+     */
+    private Long userId;
+
+    /**
      * 视频BVID
      */
     private String bvid;

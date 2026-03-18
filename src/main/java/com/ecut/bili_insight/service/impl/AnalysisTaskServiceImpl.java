@@ -45,64 +45,58 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
     private PythonApiClient pythonApiClient;
 
     /**
-     * 提交视频分析任务
-     * 1. 在数据库创建任务记录(状态PENDING)
-     * 2. 提交事务后异步调用Python服务
-     * 3. 立即返回任务ID给前端
+     * 提交视频分析任务（若已有 COMPLETED 任务则复用）
      */
     @Override
-    public String submitAnalysisTask(String bvid) {
-        logger.info("Submitting analysis task for BVID: {}", bvid);
+    public String submitAnalysisTask(String bvid, Long userId, String sessdata) {
+        logger.info("Submitting analysis task: bvid={}, userId={}, hasCredential={}", bvid, userId, sessdata != null);
 
-        // 检查是否已有相同BVID的任务
         AnalysisTask existingTask = taskMapper.findByBvid(bvid);
         if (existingTask != null && "COMPLETED".equals(existingTask.getStatus())) {
-            logger.info("Task already completed for BVID: {}, returning existing task ID: {}",
-                    bvid, existingTask.getTaskId());
+            logger.info("Task already completed for BVID: {}, reusing taskId={}", bvid, existingTask.getTaskId());
             return existingTask.getTaskId();
         }
 
-        // 在事务中创建新任务
-        String taskId = createTaskInTransaction(bvid);
-        logger.info("Created task with ID: {}", taskId);
-
-        // 事务提交后，异步调用Python服务
-        callPythonServiceAsync(bvid, taskId);
-
+        String taskId = createTaskInTransaction(bvid, userId);
+        callPythonServiceAsync(bvid, taskId, sessdata);
         return taskId;
     }
 
-    /**
-     * 在事务中创建任务
-     */
     @Transactional
-    protected String createTaskInTransaction(String bvid) {
+    protected String createTaskInTransaction(String bvid, Long userId) {
         AnalysisTask task = new AnalysisTask();
         task.setBvid(bvid);
+        task.setUserId(userId);
         task.setStatus("PENDING");
         task.setProgress(0);
         task.setCurrentStep("Task submitted");
-
         taskMapper.insert(task);
         return task.getTaskId();
     }
 
     /**
-     * 异步调用Python分析服务
+     * 强制重新分析（忽略已有 COMPLETED 任务）
+     */
+    @Override
+    public String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata) {
+        logger.info("Force submitting analysis task: bvid={}, userId={}", bvid, userId);
+        String taskId = createTaskInTransaction(bvid, userId);
+        callPythonServiceAsync(bvid, taskId, sessdata);
+        return taskId;
+    }
+
+    /**
+     * 异步调用Python分析服务，传入用户的B站凭证（可为null）
      */
     @Async
-    protected void callPythonServiceAsync(String bvid, String taskId) {
+    protected void callPythonServiceAsync(String bvid, String taskId, String sessdata) {
         try {
-            logger.info("Calling Python service asynchronously for task {}", taskId);
-
-            boolean success = pythonApiClient.submitAnalysisTask(bvid, taskId);
-
+            logger.info("Calling Python service async: taskId={}", taskId);
+            boolean success = pythonApiClient.submitAnalysisTask(bvid, taskId, sessdata);
             if (!success) {
-                // 如果调用失败,更新任务状态为FAILED
                 taskMapper.updateStatus(taskId, "FAILED", "Failed to call Python service");
                 logger.error("Python service call failed for task {}", taskId);
             }
-
         } catch (Exception e) {
             logger.error("Error in async Python service call: {}", e.getMessage(), e);
             taskMapper.updateStatus(taskId, "FAILED", e.getMessage());
@@ -128,12 +122,12 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
     }
 
     /**
-     * 获取最近的任务列表
+     * 获取最近的任务列表（按用户过滤）
      */
     @Override
-    public List<AnalysisTask> getRecentTasks(int limit) {
-        logger.debug("Fetching recent tasks, limit: {}", limit);
-        return taskMapper.findRecent(limit);
+    public List<AnalysisTask> getRecentTasks(int limit, Long userId) {
+        logger.debug("Fetching recent tasks, limit: {}, userId: {}", limit, userId);
+        return taskMapper.findRecent(userId, limit);
     }
 
     /**

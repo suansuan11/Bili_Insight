@@ -1,104 +1,68 @@
 <template>
-  <div class="app-container">
-    <el-container class="h-screen" style="background: #ffffff;">
-      <!-- Sidebar -->
-      <el-aside :width="isCollapsed ? '64px' : '240px'" class="glass-sidebar" style="transition: width 0.3s ease;">
-        <div class="logo-area">
-          <h1 v-if="!isCollapsed" class="text-xl font-bold"
-              style="background: linear-gradient(to right, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent;">
-            Bili Insight
-          </h1>
-          <h1 v-else class="text-xl font-bold"
-              style="background: linear-gradient(to right, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent;">
-            BI
-          </h1>
-          <el-button
-            :icon="isCollapsed ? Expand : Fold"
-            class="collapse-btn"
-            text
-            @click="isCollapsed = !isCollapsed"
-          />
+  <div class="app-shell">
+    <!-- Dark Sidebar -->
+    <aside class="sidebar" :class="{ 'sidebar--collapsed': isCollapsed }">
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <div class="logo-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="7" height="7" rx="2" fill="#3b82f6"/>
+            <rect x="14" y="3" width="7" height="7" rx="2" fill="#60a5fa" opacity="0.7"/>
+            <rect x="3" y="14" width="7" height="7" rx="2" fill="#60a5fa" opacity="0.7"/>
+            <rect x="14" y="14" width="7" height="7" rx="2" fill="#3b82f6"/>
+          </svg>
         </div>
+        <span v-if="!isCollapsed" class="logo-text">Bili Insight</span>
+        <button class="collapse-btn" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? '展开' : '收起'">
+          <el-icon :size="16">
+            <component :is="isCollapsed ? Expand : Fold" />
+          </el-icon>
+        </button>
+      </div>
 
-        <el-menu
-          router
-          :default-active="$route.path"
-          :collapse="isCollapsed"
-          class="custom-menu"
-          background-color="transparent"
-          text-color="#64748b"
-          active-text-color="#6366f1"
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in navItems"
+          :key="item.path"
+          :to="item.path"
+          class="nav-item"
+          :class="{ 'nav-item--active': $route.path === item.path }"
+          :title="isCollapsed ? item.label : ''"
         >
-          <el-menu-item index="/">
-            <el-icon><Odometer /></el-icon>
-            <template #title>Dashboard</template>
-          </el-menu-item>
+          <el-icon :size="18"><component :is="item.icon" /></el-icon>
+          <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
+        </router-link>
+      </nav>
 
-          <el-menu-item index="/popular">
-            <el-icon><TrendCharts /></el-icon>
-            <template #title>Popular Videos</template>
-          </el-menu-item>
-
-          <el-menu-item index="/analysis">
-            <el-icon><DataAnalysis /></el-icon>
-            <template #title>Analysis</template>
-          </el-menu-item>
-
-          <el-menu-item index="/projects">
-            <el-icon><Monitor /></el-icon>
-            <template #title>监测项目</template>
-          </el-menu-item>
-
-          <el-menu-item index="/settings">
-            <el-icon><Setting /></el-icon>
-            <template #title>Settings</template>
-          </el-menu-item>
-        </el-menu>
-
-        <!-- User Info Section -->
-        <div class="sidebar-user-section">
-          <div class="user-info-content">
-            <el-icon :size="20" color="#64748b"><User /></el-icon>
-            <template v-if="!isCollapsed">
-              <span class="user-name">{{ sidebarUsername }}</span>
-              <el-tag size="small" type="info" effect="plain" style="margin-left: auto;">用户</el-tag>
-            </template>
+      <!-- User Footer -->
+      <div class="sidebar-footer">
+        <div class="user-row">
+          <div class="user-avatar">
+            <el-icon :size="14"><User /></el-icon>
           </div>
-          <el-button
-            v-if="!isCollapsed"
-            text
-            type="danger"
-            size="small"
-            style="width: 100%; margin-top: 8px;"
-            @click="handleLogout"
-          >
-            退出登录
-          </el-button>
-          <el-button
-            v-else
-            text
-            type="danger"
-            size="small"
-            :icon="SwitchButton"
-            style="width: 100%; margin-top: 8px;"
-            @click="handleLogout"
-          />
+          <div v-if="!isCollapsed" class="user-meta">
+            <span class="user-name">{{ sidebarUsername }}</span>
+            <span class="user-role">分析师</span>
+          </div>
         </div>
-      </el-aside>
-      
-      <!-- Main Content Container with Rounded Corner -->
-      <el-container class="main-content-container">
+        <button class="logout-btn" @click="handleLogout" :title="isCollapsed ? '退出' : ''">
+          <el-icon :size="15"><SwitchButton /></el-icon>
+          <span v-if="!isCollapsed">退出</span>
+        </button>
+      </div>
+    </aside>
 
-        
-        <el-main>
-          <router-view v-slot="{ Component }">
-            <transition name="fade" mode="out-in">
-              <component :is="Component" />
-            </transition>
-          </router-view>
-        </el-main>
-      </el-container>
-    </el-container>
+    <!-- Main Content -->
+    <div class="main-wrapper">
+      <main class="main-content">
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -109,6 +73,14 @@ import { Odometer, TrendCharts, DataAnalysis, Monitor, Setting, User, Fold, Expa
 
 const router = useRouter()
 const isCollapsed = ref(false)
+
+const navItems = [
+  { path: '/', label: 'Dashboard', icon: Odometer },
+  { path: '/popular', label: '热门视频', icon: TrendCharts },
+  { path: '/analysis', label: '分析任务', icon: DataAnalysis },
+  { path: '/projects', label: '监测项目', icon: Monitor },
+  { path: '/settings', label: '设置', icon: Setting },
+]
 
 const sidebarUsername = computed(() => {
   try {
@@ -129,107 +101,222 @@ const handleLogout = () => {
 </script>
 
 <style scoped>
-.h-screen {
+.app-shell {
+  display: flex;
   height: 100vh;
-}
-.bg-base {
-  background-color: var(--color-bg-base);
+  background: var(--color-sidebar-bg);
+  overflow: hidden;
 }
 
-.glass-sidebar {
-  background: transparent; /* Sidebar is just on the white base */
-  /* Remove border-right to avoid hard line */
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
   display: flex;
   flex-direction: column;
+  background: var(--color-sidebar-bg);
+  transition: width 0.25s ease, min-width 0.25s ease;
+  overflow: hidden;
 }
 
-.logo-area {
-  height: 64px;
+.sidebar--collapsed {
+  width: 64px;
+  min-width: 64px;
+}
+
+/* Logo */
+.sidebar-logo {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.logo-icon {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 12px;
+  width: 32px;
+  height: 32px;
+}
+
+.logo-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.3px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .collapse-btn {
-  padding: 4px;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  margin-left: auto;
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
   color: #94a3b8;
 }
 
-.sidebar-user-section {
-  margin-top: auto;
-  padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
+/* Nav */
+.sidebar-nav {
+  flex: 1;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.user-info-content {
+.nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #e2e8f0;
+}
+
+.nav-item--active {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+
+.nav-item--active:hover {
+  background: rgba(59, 130, 246, 0.22);
+  color: #bfdbfe;
+}
+
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer */
+.sidebar-footer {
+  padding: 12px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .user-name {
-  font-size: 14px;
-  color: #475569;
+  font-size: 13px;
   font-weight: 500;
+  color: #e2e8f0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.glass-header {
-  background: transparent; /* Transparent header */
-  /* Remove border to blend with main content */
-  height: 64px;
+.user-role {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 1px;
 }
 
-.custom-menu {
-  border-right: none;
-  padding: 1rem 0;
-  flex: 1;
-}
-
-:deep(.el-menu--collapse) {
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
-}
-
-:deep(.el-menu-item) {
-  border-radius: var(--radius-lg);
-  margin: 4px 12px;
-  height: 48px;
-}
-
-:deep(.el-menu-item.is-active) {
-  background-color: var(--color-primary-light);
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
   font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
-:deep(.el-menu-item:hover) {
-  background-color: rgba(99, 102, 241, 0.05);
+.logout-btn:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: #f87171;
 }
 
-.main-content-container {
-  background-color: #f3f4f6;
-  border-radius: var(--radius-2xl);
-  overflow: hidden; /* This might be cutting off the button, but 'auto' is better for main content scrolling */
+/* ===== Main Content ===== */
+.main-wrapper {
+  flex: 1;
+  background: var(--color-bg-base);
+  border-radius: 16px 0 0 16px;
+  margin: 10px 0 10px 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
   overflow-y: auto;
-  margin: 16px; /* Uniform margin */
-  box-shadow: -4px 0 20px rgba(0,0,0,0.03);
-  position: relative; /* Ensure child absolute positioning relates to this */
+  padding: 28px 32px;
 }
 
-/* Fix for back-to-top button if it exists in Element Plus components */
-:deep(.el-backtop) {
-  position: absolute;
-  bottom: 40px;
-  right: 40px;
-  z-index: 100;
-}
-
+/* Page transition */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
 .fade-enter-from,

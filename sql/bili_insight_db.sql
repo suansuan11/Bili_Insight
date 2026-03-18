@@ -61,6 +61,8 @@ CREATE TABLE `popular_videos` (
   `author` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `tname` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Category name',
   `cover_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `publish_date` datetime DEFAULT NULL COMMENT '视频发布时间',
+  `duration` int DEFAULT '0' COMMENT '视频时长(秒)',
   `view_count` int DEFAULT '0',
   `danmaku_count` int DEFAULT '0',
   `reply_count` int DEFAULT '0',
@@ -141,6 +143,10 @@ CREATE TABLE `user` (
   `password_hash` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `role` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'BRAND' COMMENT 'CREATOR (UP主) / BRAND (品牌方) / ADMIN',
+  `bili_sessdata` text COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'B站SESSDATA cookie',
+  `bili_jct` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'B站bili_jct cookie',
+  `bili_buvid3` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'B站buvid3 cookie',
+  `bili_login_at` datetime DEFAULT NULL COMMENT 'B站最近登录时间',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -158,7 +164,7 @@ COMMIT;
 -- ----------------------------
 DROP TABLE IF EXISTS `video_comment`;
 CREATE TABLE `video_comment` (
-  `comment_id` bigint NOT NULL,
+  `comment_id` bigint NOT NULL AUTO_INCREMENT,
   `bvid` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `task_id` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `username` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -190,7 +196,7 @@ COMMIT;
 -- ----------------------------
 DROP TABLE IF EXISTS `video_danmaku`;
 CREATE TABLE `video_danmaku` (
-  `danmaku_id` bigint NOT NULL,
+  `danmaku_id` bigint NOT NULL AUTO_INCREMENT,
   `bvid` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `task_id` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `content` text COLLATE utf8mb4_unicode_ci NOT NULL,

@@ -24,6 +24,10 @@ public class PythonApiClient {
     @Value("${python.service.url:http://localhost:8001}")
     private String pythonServiceUrl;
 
+    public String getPythonServiceUrl() {
+        return pythonServiceUrl;
+    }
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -34,26 +38,27 @@ public class PythonApiClient {
 
     /**
      * 提交视频分析任务到Python服务
-     * @param bvid 视频BVID
-     * @param taskId Java端任务ID
+     * @param bvid      视频BVID
+     * @param taskId    Java端任务ID
+     * @param sessdata  当前用户的B站SESSDATA（可为null，则Python使用全局凭证）
      * @return 是否提交成功
      */
-    public boolean submitAnalysisTask(String bvid, String taskId) {
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata) {
         String url = pythonServiceUrl + "/api/analysis/video";
 
         try {
-            // 构建请求体
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("bvid", bvid);
             requestBody.put("task_id", taskId);
+            if (sessdata != null && !sessdata.trim().isEmpty()) {
+                requestBody.put("sessdata", sessdata);
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-            // 发送POST请求
-            logger.info("Submitting analysis task to Python service: bvid={}, taskId={}", bvid, taskId);
+            logger.info("Submitting analysis task: bvid={}, taskId={}, hasCredential={}", bvid, taskId, sessdata != null);
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {
@@ -68,6 +73,11 @@ public class PythonApiClient {
             logger.error("Error calling Python service: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    /** 兼容旧调用：不传sessdata（用于系统自动触发的监控任务） */
+    public boolean submitAnalysisTask(String bvid, String taskId) {
+        return submitAnalysisTask(bvid, taskId, null);
     }
 
     /**
@@ -196,7 +206,7 @@ public class PythonApiClient {
      * @return 包含登录状态信息的JSON字符串
      */
     public String pollLoginStatus(String key) {
-        String url = pythonServiceUrl + "/api/login/status?key=" + key;
+        String url = pythonServiceUrl + "/api/login/status/" + key;
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             return response.getBody();

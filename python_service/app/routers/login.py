@@ -31,6 +31,8 @@ class QRStatusResponse(BaseModel):
     status: str
     message: str
     sessdata: Optional[str] = None
+    bili_jct: Optional[str] = None
+    buvid3: Optional[str] = None
 
 
 @router.get("/qrcode", response_model=QRCodeResponse)
@@ -96,7 +98,9 @@ async def check_qr_status(qrcode_key: str, auto_save: bool = True):
         return QRStatusResponse(
             status=result["status"],
             message=result["message"],
-            sessdata=result.get("sessdata")
+            sessdata=result.get("sessdata"),
+            bili_jct=result.get("bili_jct"),
+            buvid3=result.get("buvid3")
         )
 
     except Exception as e:
@@ -110,61 +114,45 @@ async def check_qr_status(qrcode_key: str, auto_save: bool = True):
 async def get_current_user():
     """
     获取当前登录用户信息
-    
-    Returns:
-        用户信息或401未登录
     """
     try:
         cred_manager = get_credential_manager()
         credential = cred_manager.get_credential()
-        
+
         if not credential:
             raise HTTPException(status_code=401, detail="未登录")
-            
-        # 使用凭证获取用户信息
-        from bilibili_api import user
-        try:
-            # 获取自己的信息需要用 Credential 实例
-            # 这里简单通过 REST API 验证或者让前端展示已登录状态
-            # 为了获取头像昵称，我们需要调用 B站 API
-            # 使用 bilibili_api 的 user.get_self_info (需要Credential)
-            
-            # 临时构造 Credential 对象
-            from bilibili_api import Credential
-            creds = Credential(
-                sessdata=credential.sessdata, 
-                bili_jct=credential.bili_jct, 
-                buvid3=credential.buvid3
-            )
-            
-            # 使用 get_self_info() 实际上是获取当前登录者的导航信息
-            # 但 bilibili_api 的 user 模块主要针对特定 UID
-            # 我们可以用 verify() 来检查有效性并获取信息
-            if await creds.check_valid():
-                # 获取导航栏信息 (包含头像昵称)
-                from bilibili_api import client
-                # 直接调用 API: https://api.bilibili.com/x/web-interface/nav
-                resp = await client.request("GET", "https://api.bilibili.com/x/web-interface/nav", credential=creds)
-                data = resp.get("data", {})
-                
-                return {
-                    "is_login": True,
-                    "uname": data.get("uname"),
-                    "face": data.get("face"),
-                    "level_info": data.get("level_info", {}),
-                    "vip_label": data.get("vip_label", {}),
-                    "wbi_img": data.get("wbi_img", {}) 
-                }
-            else:
-                return {"is_login": False}
-                
-        except Exception as api_err:
-            print(f"Bilibili API Error: {api_err}")
-            # sessdata可能过期
+
+        import httpx
+        cookies = {"SESSDATA": credential.sessdata}
+        if credential.bili_jct:
+            cookies["bili_jct"] = credential.bili_jct
+        if credential.buvid3:
+            cookies["buvid3"] = credential.buvid3
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.bilibili.com",
+        }
+
+        async with httpx.AsyncClient(cookies=cookies, headers=headers, timeout=10) as client:
+            resp = await client.get("https://api.bilibili.com/x/web-interface/nav")
+            result = resp.json()
+
+        if result.get("code") == 0 and result.get("data", {}).get("isLogin"):
+            data = result["data"]
+            return {
+                "is_login": True,
+                "mid": data.get("mid"),
+                "uname": data.get("uname"),
+                "face": data.get("face"),
+                "level_info": data.get("level_info", {}),
+                "vip_label": data.get("vip_label", {}),
+            }
+        else:
             return {"is_login": False}
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Check login error: {e}")
+        print(f"current_user error: {e}")
         return {"is_login": False}

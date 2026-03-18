@@ -26,9 +26,12 @@ service.interceptors.response.use(
     },
     error => {
         if (error.response && error.response.status === 401) {
-            // 清除过期的token并跳转到登录页
-            localStorage.removeItem('token')
-            router.push('/login')
+            // 只有在非登录/注册页面才自动跳转，避免登录失败时死循环
+            const path = window.location.pathname
+            if (path !== '/login' && path !== '/register') {
+                localStorage.removeItem('token')
+                router.push('/login')
+            }
         }
         return Promise.reject(error)
     }

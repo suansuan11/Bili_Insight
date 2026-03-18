@@ -25,7 +25,12 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors().and().csrf().disable()
             .authorizeRequests()
-            .antMatchers("/api/auth/**", "/insight/auth/**", "/insight/login/**", "/health").permitAll()
+            .antMatchers(
+                "/insight/auth/login",
+                "/insight/auth/register",
+                "/insight/login/**",
+                "/health"
+            ).permitAll()
             .anyRequest().authenticated()
             .and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);

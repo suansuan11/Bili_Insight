@@ -11,7 +11,17 @@
       "Bash(python3 -m py_compile app/main.py)",
       "Bash(python3 -c \"from app.routers import analyze, popular, credential, login, analysis\")",
       "Bash(python3 -c \":*)",
-      "Bash(npx vue-tsc:*)"
+      "Bash(npx vue-tsc:*)",
+      "Bash(find /Users/dio/project/Bili_Insight/bili-insight-frontend/src -type f \\\\\\(-name *.vue -o -name *.js \\\\\\))",
+      "Bash(python3 -m uvicorn --version)",
+      "Bash(pip3 show:*)",
+      "Bash(mvn compile:*)",
+      "Bash(mysql:*)",
+      "Bash(find /Users/dio/project/Bili_Insight/src -name *Dashboard* -o -name *dashboard*)",
+      "Bash(/dev/null:*)",
+      "Bash(npm run:*)",
+      "Bash(find /Users/dio/project/Bili_Insight -name *UserMapper* -o -name *User.xml)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }

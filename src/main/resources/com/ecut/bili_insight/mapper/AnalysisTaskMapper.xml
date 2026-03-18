@@ -3,19 +3,19 @@
 <mapper namespace="com.ecut.bili_insight.mapper.AnalysisTaskMapper">
 
     <insert id="insert" parameterType="com.ecut.bili_insight.entity.AnalysisTask" useGeneratedKeys="true" keyProperty="taskId">
-        INSERT INTO analysis_task (bvid, status, progress, current_step, error_message, created_at, updated_at)
-        VALUES (#{bvid}, #{status}, #{progress}, #{currentStep}, #{errorMessage}, NOW(), NOW())
+        INSERT INTO analysis_task (bvid, user_id, status, progress, current_step, error_message, created_at, updated_at)
+        VALUES (#{bvid}, #{userId}, #{status}, #{progress}, #{currentStep}, #{errorMessage}, NOW(), NOW())
     </insert>
 
     <select id="findById" resultType="com.ecut.bili_insight.entity.AnalysisTask">
-        SELECT task_id AS taskId, bvid, status, progress, current_step AS currentStep,
+        SELECT task_id AS taskId, bvid, user_id AS userId, status, progress, current_step AS currentStep,
                error_message AS errorMessage, created_at AS createdAt, updated_at AS updatedAt
         FROM analysis_task
         WHERE task_id = #{taskId}
     </select>
 
     <select id="findByBvid" resultType="com.ecut.bili_insight.entity.AnalysisTask">
-        SELECT task_id AS taskId, bvid, status, progress, current_step AS currentStep,
+        SELECT task_id AS taskId, bvid, user_id AS userId, status, progress, current_step AS currentStep,
                error_message AS errorMessage, created_at AS createdAt, updated_at AS updatedAt
         FROM analysis_task
         WHERE bvid = #{bvid}
@@ -40,9 +40,14 @@
     </update>
 
     <select id="findRecent" resultType="com.ecut.bili_insight.entity.AnalysisTask">
-        SELECT task_id AS taskId, bvid, status, progress, current_step AS currentStep,
+        SELECT task_id AS taskId, bvid, user_id AS userId, status, progress, current_step AS currentStep,
                error_message AS errorMessage, created_at AS createdAt, updated_at AS updatedAt
         FROM analysis_task
+        <where>
+            <if test="userId != null">
+                user_id = #{userId}
+            </if>
+        </where>
         ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
