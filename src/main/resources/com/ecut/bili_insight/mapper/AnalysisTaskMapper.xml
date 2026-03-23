@@ -2,9 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ecut.bili_insight.mapper.AnalysisTaskMapper">
 
-    <insert id="insert" parameterType="com.ecut.bili_insight.entity.AnalysisTask" useGeneratedKeys="true" keyProperty="taskId">
-        INSERT INTO analysis_task (bvid, user_id, status, progress, current_step, error_message, created_at, updated_at)
-        VALUES (#{bvid}, #{userId}, #{status}, #{progress}, #{currentStep}, #{errorMessage}, NOW(), NOW())
+    <insert id="insert" parameterType="com.ecut.bili_insight.entity.AnalysisTask">
+        INSERT INTO analysis_task (task_id, bvid, user_id, status, progress, current_step, error_message, created_at, updated_at)
+        VALUES (#{taskId}, #{bvid}, #{userId}, #{status}, #{progress}, #{currentStep}, #{errorMessage}, NOW(), NOW())
     </insert>
 
     <select id="findById" resultType="com.ecut.bili_insight.entity.AnalysisTask">
@@ -51,5 +51,22 @@
         ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
+
+    <select id="findByProjectId" resultType="com.ecut.bili_insight.entity.AnalysisTask">
+        SELECT task_id AS taskId, bvid, user_id AS userId, project_id AS projectId, status, progress,
+               current_step AS currentStep, error_message AS errorMessage, created_at AS createdAt
+        FROM analysis_task
+        WHERE project_id = #{projectId}
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="markTimeoutTasks">
+        UPDATE analysis_task
+        SET status = 'FAILED',
+            error_message = 'Task timeout',
+            updated_at = NOW()
+        WHERE status IN ('PENDING', 'RUNNING')
+          AND created_at &lt; #{timeoutThreshold}
+    </update>
 
 </mapper>

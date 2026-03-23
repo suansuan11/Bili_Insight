@@ -24,6 +24,9 @@ public class PythonApiClient {
     @Value("${python.service.url:http://localhost:8001}")
     private String pythonServiceUrl;
 
+    @Value("${python.service.api-key:}")
+    private String apiKey;
+
     public String getPythonServiceUrl() {
         return pythonServiceUrl;
     }
@@ -34,6 +37,14 @@ public class PythonApiClient {
     public PythonApiClient(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+    }
+
+    private HttpHeaders createHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        if (apiKey != null && !apiKey.isEmpty()) {
+            headers.set("X-API-Key", apiKey);
+        }
+        return headers;
     }
 
     /**
@@ -54,7 +65,7 @@ public class PythonApiClient {
                 requestBody.put("sessdata", sessdata);
             }
 
-            HttpHeaders headers = new HttpHeaders();
+            HttpHeaders headers = createHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
@@ -90,7 +101,8 @@ public class PythonApiClient {
 
         try {
             logger.debug("Querying task progress from Python service: taskId={}", taskId);
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {
                 return response.getBody();
@@ -113,7 +125,8 @@ public class PythonApiClient {
         String url = pythonServiceUrl + "/";
 
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
             boolean isHealthy = response.getStatusCode() == HttpStatus.OK;
             logger.info("Python service health check: {}", isHealthy ? "OK" : "FAILED");
             return isHealthy;

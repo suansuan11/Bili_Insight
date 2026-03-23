@@ -25,9 +25,9 @@
         SELECT * FROM `user` WHERE id = #{id}
     </select>
 
-    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO `user` (username, password_hash, email, role, created_at, updated_at)
-        VALUES (#{username}, #{password}, #{email}, #{role}, NOW(), NOW())
+    <insert id="insert">
+        INSERT INTO `user` (id, username, password_hash, email, role, created_at, updated_at)
+        VALUES (#{id}, #{username}, #{password}, #{email}, #{role}, NOW(), NOW())
     </insert>
 
     <update id="updateBiliCredential">

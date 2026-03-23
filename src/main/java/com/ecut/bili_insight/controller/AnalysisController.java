@@ -70,6 +70,11 @@ public class AnalysisController {
                 return Result.failed(ResultCode.FAILED, "BVID不能为空");
             }
 
+            // BVID格式验证
+            if (!bvid.matches("^BV[a-zA-Z0-9]{10}$")) {
+                return Result.failed(ResultCode.FAILED, "BVID格式无效");
+            }
+
             // 提交任务，携带当前用户的B站凭证（若已绑定）
             String taskId = analysisTaskService.submitAnalysisTask(bvid, getCurrentUserId(), getCurrentUserSessdata());
 
@@ -168,7 +173,12 @@ public class AnalysisController {
         logger.info("Received complete result query for task ID: {}", taskId);
 
         try {
-            Map<String, Object> result = analysisTaskService.getAnalysisResult(taskId);
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return Result.failed(ResultCode.UNAUTHORIZED, "用户未登录");
+            }
+
+            Map<String, Object> result = analysisTaskService.getAnalysisResult(taskId, currentUser.getId());
 
             if (result == null || result.isEmpty()) {
                 return Result.failed(ResultCode.FAILED, "分析结果不存在");
@@ -176,6 +186,9 @@ public class AnalysisController {
 
             return Result.success(result);
 
+        } catch (RuntimeException e) {
+            logger.error("Permission denied or task not found: {}", e.getMessage());
+            return Result.failed(ResultCode.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
             logger.error("Failed to get analysis result for task ID: {}", taskId, e);
             return Result.failed(ResultCode.FAILED, "获取分析结果失败: " + e.getMessage());
@@ -199,12 +212,22 @@ public class AnalysisController {
         logger.debug("Fetching comments for task {}: sentiment={}, aspect={}", taskId, sentiment, aspect);
 
         try {
+            // 验证sentiment参数
+            if (sentiment != null && !sentiment.matches("^(POSITIVE|NEGATIVE|NEUTRAL)$")) {
+                return Result.failed(ResultCode.FAILED, "无效的情感标签");
+            }
+
+            // 验证aspect参数
+            if (aspect != null && !aspect.matches("^[a-zA-Z0-9_\\u4e00-\\u9fff]{1,50}$")) {
+                return Result.failed(ResultCode.FAILED, "无效的切面参数");
+            }
+
             List<VideoComment> comments = analysisTaskService.getComments(taskId, sentiment, aspect);
             return Result.success(comments);
 
         } catch (Exception e) {
             logger.error("Failed to get comments for task ID: {}", taskId, e);
-            return Result.failed(ResultCode.FAILED, "获取评论失败: " + e.getMessage());
+            return Result.failed(ResultCode.FAILED, "获取评论失败");
         }
     }
 

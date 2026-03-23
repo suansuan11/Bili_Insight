@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import popular, credential, login, analysis
 from .config import settings
 from .services.credential_manager import get_credential_manager
+from .middleware import APIKeyMiddleware
 
 # 创建FastAPI应用实例
 app = FastAPI(
@@ -20,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 添加API密钥认证中间件
+app.add_middleware(APIKeyMiddleware)
 
 # 初始化凭证管理器（启动时加载默认凭证）
 get_credential_manager()

@@ -1,28 +1,17 @@
 """数据库操作模块"""
-import pymysql
 from typing import List, Dict, Optional
 from contextlib import contextmanager
-from ..config import settings
+import pymysql.cursors
+from .pool import pool
 
 
 class DatabaseRepository:
     """数据库访问类"""
 
-    def __init__(self):
-        """初始化数据库连接配置"""
-        self.config = {
-            'host': settings.db_host,
-            'port': settings.db_port,
-            'user': settings.db_user,
-            'password': settings.db_password,
-            'database': settings.db_name,
-            'charset': 'utf8mb4'
-        }
-
     @contextmanager
     def get_connection(self):
         """获取数据库连接（上下文管理器）"""
-        conn = pymysql.connect(**self.config)
+        conn = pool.get_connection()
         try:
             yield conn
         finally:

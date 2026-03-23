@@ -52,7 +52,8 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         logger.info("Submitting analysis task: bvid={}, userId={}, hasCredential={}", bvid, userId, sessdata != null);
 
         AnalysisTask existingTask = taskMapper.findByBvid(bvid);
-        if (existingTask != null && "COMPLETED".equals(existingTask.getStatus())) {
+        if (existingTask != null && "COMPLETED".equals(existingTask.getStatus())
+                && userId.equals(existingTask.getUserId())) {
             logger.info("Task already completed for BVID: {}, reusing taskId={}", bvid, existingTask.getTaskId());
             return existingTask.getTaskId();
         }
@@ -65,6 +66,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
     @Transactional
     protected String createTaskInTransaction(String bvid, Long userId) {
         AnalysisTask task = new AnalysisTask();
+        task.setTaskId(java.util.UUID.randomUUID().toString());
         task.setBvid(bvid);
         task.setUserId(userId);
         task.setStatus("PENDING");
@@ -131,7 +133,22 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
     }
 
     /**
-     * 获取完整的分析结果
+     * 获取完整的分析结果（带权限验证）
+     */
+    @Override
+    public Map<String, Object> getAnalysisResult(String taskId, Long userId) {
+        AnalysisTask task = taskMapper.findById(taskId);
+        if (task == null) {
+            throw new RuntimeException("任务不存在");
+        }
+        if (!task.getUserId().equals(userId)) {
+            throw new RuntimeException("无权访问该任务");
+        }
+        return getAnalysisResult(taskId);
+    }
+
+    /**
+     * 获取完整的分析结果（无权限验证）
      * 包含评论、弹幕、时间轴、统计数据
      */
     @Override

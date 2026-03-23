@@ -24,13 +24,18 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private com.ecut.bili_insight.service.RateLimitService rateLimitService;
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User user) {
         if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
             return ResponseEntity.badRequest().body("用户名不能为空");
         }
-        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-            return ResponseEntity.badRequest().body("密码不能为空");
+        if (user.getPassword() == null || user.getPassword().length() < 8 ||
+            !user.getPassword().matches(".*[A-Z].*") ||
+            !user.getPassword().matches(".*[0-9].*")) {
+            return ResponseEntity.badRequest().body("密码至少8位，需包含大写字母和数字");
         }
         if (userService.findByUsername(user.getUsername()) != null) {
             return ResponseEntity.badRequest().body("用户名已存在");
@@ -50,16 +55,26 @@ public class AuthController {
             userService.register(user);
             return ResponseEntity.ok("注册成功");
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("注册失败：" + e.getMessage());
+            logger.error("Registration failed for user: {}", user.getUsername(), e);
+            return ResponseEntity.status(500).body("注册失败，请稍后重试");
         }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User loginReq) {
+    public ResponseEntity<?> login(@RequestBody User loginReq, @RequestHeader(value = "X-Forwarded-For", required = false) String xff) {
+        String identifier = loginReq.getUsername();
+
+        if (rateLimitService.isBlocked(identifier)) {
+            return ResponseEntity.status(429).body("登录尝试过多，请15分钟后重试");
+        }
+
         User user = userService.findByUsername(loginReq.getUsername());
         if (user == null || !passwordEncoder.matches(loginReq.getPassword(), user.getPassword())) {
+            rateLimitService.recordFailure(identifier);
             return ResponseEntity.status(401).body("用户名或密码错误");
         }
+
+        rateLimitService.resetAttempts(identifier);
 
         // JWT 中嵌入 userId，避免后续请求再查 DB
         String token = jwtUtil.generateToken(user.getUsername(), user.getRole(), user.getId());

@@ -49,4 +49,12 @@ public interface VideoCommentMapper {
      * @return 评论总数
      */
     int countByTaskId(@Param("taskId") String taskId);
+
+    /**
+     * 统计任务指定情感的评论数
+     * @param taskId 任务ID
+     * @param sentimentLabel 情感标签
+     * @return 评论数
+     */
+    int countByTaskIdAndSentiment(@Param("taskId") String taskId, @Param("sentimentLabel") String sentimentLabel);
 }

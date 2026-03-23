@@ -52,4 +52,9 @@
         SELECT COUNT(*) FROM video_comment WHERE task_id = #{taskId}
     </select>
 
+    <select id="countByTaskIdAndSentiment" resultType="int">
+        SELECT COUNT(*) FROM video_comment
+        WHERE task_id = #{taskId} AND sentiment_label = #{sentimentLabel}
+    </select>
+
 </mapper>

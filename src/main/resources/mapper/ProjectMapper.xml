@@ -23,6 +23,10 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="findAll" resultMap="ProjectResultMap">
+        SELECT * FROM project ORDER BY created_at DESC
+    </select>
+
     <select id="findById" resultMap="ProjectResultMap">
         SELECT * FROM project WHERE id = #{id}
     </select>
@@ -45,4 +49,8 @@
     <delete id="deleteById">
         DELETE FROM project WHERE id = #{id}
     </delete>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM project WHERE user_id = #{userId}
+    </select>
 </mapper>

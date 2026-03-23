@@ -1,6 +1,8 @@
 package com.ecut.bili_insight.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,8 +40,14 @@ public class JwtUtil {
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
-        return claimsResolver.apply(claims);
+        try {
+            final Claims claims = Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
+            return claimsResolver.apply(claims);
+        } catch (ExpiredJwtException e) {
+            throw new RuntimeException("Token已过期");
+        } catch (JwtException e) {
+            throw new RuntimeException("Token无效");
+        }
     }
 
     /**

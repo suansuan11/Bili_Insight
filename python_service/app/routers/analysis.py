@@ -181,8 +181,7 @@ async def get_task_result(task_id: str):
         danmaku_stats = await storage_service.get_danmaku_stats(task_id)
 
         # 查询情绪时间轴
-        conn = storage_service.get_connection()
-        try:
+        with storage_service.get_connection() as conn:
             with conn.cursor() as cursor:
                 sql = "SELECT * FROM sentiment_timeline WHERE task_id = %s"
                 cursor.execute(sql, (task_id,))
@@ -191,9 +190,6 @@ async def get_task_result(task_id: str):
                 import json
                 timeline = json.loads(timeline_data['timeline_json']) if timeline_data else []
                 aspects = json.loads(timeline_data['aspect_sentiment_json']) if timeline_data else {}
-
-        finally:
-            conn.close()
 
         return TaskResultResponse(
             task_id=task_id,
@@ -223,8 +219,7 @@ async def get_sentiment_timeline(task_id: str):
             raise HTTPException(status_code=404, detail="任务不存在")
 
         # 查询时间轴数据
-        conn = storage_service.get_connection()
-        try:
+        with storage_service.get_connection() as conn:
             with conn.cursor() as cursor:
                 sql = "SELECT timeline_json FROM sentiment_timeline WHERE task_id = %s"
                 cursor.execute(sql, (task_id,))
@@ -236,9 +231,6 @@ async def get_sentiment_timeline(task_id: str):
                 import json
                 timeline = json.loads(result['timeline_json'])
                 return {"timeline": timeline}
-
-        finally:
-            conn.close()
 
     except HTTPException:
         raise
@@ -258,8 +250,7 @@ async def get_aspect_sentiments(task_id: str):
             raise HTTPException(status_code=404, detail="任务不存在")
 
         # 查询切面数据
-        conn = storage_service.get_connection()
-        try:
+        with storage_service.get_connection() as conn:
             with conn.cursor() as cursor:
                 sql = "SELECT aspect_sentiment_json FROM sentiment_timeline WHERE task_id = %s"
                 cursor.execute(sql, (task_id,))
@@ -271,9 +262,6 @@ async def get_aspect_sentiments(task_id: str):
                 import json
                 aspects = json.loads(result['aspect_sentiment_json'])
                 return {"aspects": aspects}
-
-        finally:
-            conn.close()
 
     except HTTPException:
         raise

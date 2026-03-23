@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     sentiment_negative_threshold: float = 0.4
     timeline_window_size: int = 10
 
+    # API安全配置
+    api_key: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'

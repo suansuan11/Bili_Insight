@@ -9,8 +9,10 @@ import java.util.List;
 @Mapper
 public interface ProjectMapper {
     List<Project> findByUserId(@Param("userId") Long userId);
+    List<Project> findAll();
     Project findById(@Param("id") Long id);
     int insert(Project project);
     int update(Project project);
     int deleteById(@Param("id") Long id);
+    int countByUserId(@Param("userId") Long userId);
 }

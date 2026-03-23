@@ -66,4 +66,20 @@ public interface AnalysisTaskMapper {
      * @return 任务列表
      */
     java.util.List<AnalysisTask> findRecent(@Param("userId") Long userId, @Param("limit") int limit);
+
+    /**
+     * 根据项目ID查询任务
+     *
+     * @param projectId 项目ID
+     * @return 任务列表
+     */
+    java.util.List<AnalysisTask> findByProjectId(@Param("projectId") Long projectId);
+
+    /**
+     * 标记超时任务为失败
+     *
+     * @param timeoutThreshold 超时时间阈值
+     * @return 受影响的行数
+     */
+    int markTimeoutTasks(@Param("timeoutThreshold") java.time.LocalDateTime timeoutThreshold);
 }

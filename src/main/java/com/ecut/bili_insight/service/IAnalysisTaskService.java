@@ -50,8 +50,17 @@ public interface IAnalysisTaskService {
     AnalysisTask getTaskByBvid(String bvid);
 
     /**
-     * 获取完整的分析结果
-     * 
+     * 获取完整的分析结果（带权限验证）
+     *
+     * @param taskId 任务ID
+     * @param userId 请求用户ID
+     * @return 包含评论、弹幕、时间轴的完整数据
+     */
+    Map<String, Object> getAnalysisResult(String taskId, Long userId);
+
+    /**
+     * 获取完整的分析结果（无权限验证，内部使用）
+     *
      * @param taskId 任务ID
      * @return 包含评论、弹幕、时间轴的完整数据
      */

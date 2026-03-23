@@ -23,6 +23,7 @@ import java.util.List;
 public class ProjectController {
 
     private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
+    private static final int MAX_PROJECTS_PER_USER = 10;
 
     @Autowired
     private ProjectMapper projectMapper;
@@ -55,7 +56,7 @@ public class ProjectController {
             return Result.success(projects);
         } catch (Exception e) {
             logger.error("获取项目列表失败", e);
-            return Result.failed(ResultCode.FAILED, "获取项目列表失败: " + e.getMessage());
+            return Result.failed(ResultCode.FAILED, "获取项目列表失败");
         }
     }
 
@@ -93,6 +94,12 @@ public class ProjectController {
             if (currentUser == null) {
                 return Result.failed(ResultCode.UNAUTHORIZED, "用户未登录");
             }
+
+            int count = projectMapper.countByUserId(currentUser.getId());
+            if (count >= MAX_PROJECTS_PER_USER) {
+                return Result.failed(ResultCode.FAILED, "项目数量已达上限（" + MAX_PROJECTS_PER_USER + "个）");
+            }
+
             project.setUserId(currentUser.getId());
             projectMapper.insert(project);
             return Result.success(project);

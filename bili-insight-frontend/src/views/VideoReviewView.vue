@@ -1,27 +1,53 @@
 <template>
   <div class="video-review" v-loading="loading">
     <!-- 视频信息头部 -->
-    <div class="video-info-header" v-if="taskInfo">
-      <h2>{{ taskInfo.bvid }} - 舆情分析详情</h2>
-    </div>
-
-    <div class="top-section">
-      <div class="video-container">
-        <iframe
-          v-if="bvid"
-          :src="'//player.bilibili.com/player.html?bvid=' + bvid + '&autoplay=0'"
-          scrolling="no"
-          border="0"
-          frameborder="no"
-          framespacing="0"
-          allowfullscreen="true">
-        </iframe>
+    <div class="page-header" v-if="taskInfo">
+      <div class="header-content">
+        <div class="header-left">
+          <el-tag type="info" size="large">{{ taskInfo.bvid }}</el-tag>
+          <h2 class="page-title">视频舆情分析</h2>
+        </div>
+        <el-button type="primary" @click="exportComments" :icon="Download">
+          导出数据
+        </el-button>
       </div>
-      <div class="chart-container" ref="chartRef"></div>
     </div>
 
-    <div class="comments-section">
-      <h3>评论舆情分析</h3>
+    <div class="content-grid">
+      <!-- 视频播放器 -->
+      <div class="player-card">
+        <div class="card-header">
+          <span class="card-title">视频播放</span>
+        </div>
+        <div class="video-container">
+          <iframe
+            v-if="bvid"
+            :src="'//player.bilibili.com/player.html?bvid=' + bvid + '&autoplay=0'"
+            scrolling="no"
+            border="0"
+            frameborder="no"
+            framespacing="0"
+            allowfullscreen="true">
+          </iframe>
+        </div>
+      </div>
+
+      <!-- 情绪时间轴 -->
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">情绪时间轴</span>
+          <el-tag size="small" type="success">实时联动</el-tag>
+        </div>
+        <div ref="chartRef" class="chart-body"></div>
+      </div>
+    </div>
+
+    <!-- 评论分析 -->
+    <div class="comments-card">
+      <div class="card-header">
+        <span class="card-title">评论舆情分析</span>
+        <span class="comment-count">共 {{ comments.length }} 条评论</span>
+      </div>
       <CommentList :comments="comments" />
     </div>
   </div>
@@ -31,6 +57,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { getAnalysisResult, getComments, getTimeline } from '@/api/analysis'
 import CommentList from '@/components/CommentList.vue'
@@ -79,6 +106,9 @@ const fetchTaskData = async () => {
 const initChart = (timeline: any[]) => {
   if (!chartRef.value || !timeline || timeline.length === 0) return
 
+  if (chartInstance) {
+    chartInstance.dispose()
+  }
   chartInstance = echarts.init(chartRef.value)
 
   const timestamps = timeline.map((item: any) => {
@@ -134,6 +164,15 @@ const handleResize = () => {
   chartInstance?.resize()
 }
 
+const exportComments = () => {
+  const token = localStorage.getItem('token')
+  const url = `http://localhost:8080/insight/export/comments/${taskId}`
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `comments_${taskId}.csv`
+  a.click()
+}
+
 onMounted(() => {
   fetchTaskData()
   window.addEventListener('resize', handleResize)
@@ -147,42 +186,88 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .video-review {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 20px;
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
 }
-.video-info-header h2 {
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 600;
   color: #303133;
 }
-.top-section {
-  display: flex;
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
-  height: 500px;
+  margin-bottom: 20px;
 }
-.video-container {
-  flex: 1;
-  background: #000;
-  border-radius: 8px;
+
+.player-card,
+.chart-card,
+.comments-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   overflow: hidden;
 }
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.video-container {
+  aspect-ratio: 16/9;
+  background: #000;
+}
+
 .video-container iframe {
   width: 100%;
   height: 100%;
+  border: none;
 }
-.chart-container {
-  flex: 1;
-  background: #fff;
-  border-radius: 8px;
+
+.chart-body {
+  height: 400px;
   padding: 20px;
-  border: 1px solid #ebeef5;
 }
-.comments-section {
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
+
+.comment-count {
+  font-size: 14px;
+  color: #909399;
+}
+
+@media (max-width: 1200px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -224,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Loading, ChatDotRound, ChatLineRound, CircleCheck, CircleClose, VideoPlay, Clock, TrendCharts, InfoFilled, Filter, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -239,6 +239,10 @@ const error = ref<string | null>(null)
 const result = ref<AnalysisResult | null>(null)
 const chartRef = ref<HTMLElement | null>(null)
 const aspectChartRef = ref<HTMLElement | null>(null)
+
+let timelineChart: echarts.ECharts | null = null
+let aspectChart: echarts.ECharts | null = null
+let resizeHandler: (() => void) | null = null
 
 // Filtering & View State
 const viewMode = ref<'comments' | 'danmaku'>('comments')
@@ -324,8 +328,9 @@ const fetchAnalysisResult = async () => {
 const renderChart = () => {
   if (!chartRef.value || !result.value?.timeline) return
 
-  const chart = echarts.init(chartRef.value)
-  
+  if (timelineChart) timelineChart.dispose()
+  timelineChart = echarts.init(chartRef.value)
+
   // Parse timeline data
   let timelineData: any[] = []
   try {
@@ -389,24 +394,27 @@ const renderChart = () => {
     ]
   }
 
-  chart.setOption(option)
-  
+  timelineChart.setOption(option)
+
   // Interactive: Click to jump video
-  chart.on('click', (params) => {
+  timelineChart.on('click', (params) => {
      if (params && params.dataIndex !== undefined) {
         const item = timelineData[params.dataIndex]
         const seconds = item.time_point || item.time
         jumpToVideo(seconds)
      }
   })
-  
-  window.addEventListener('resize', () => chart.resize())
+
+  if (resizeHandler) window.removeEventListener('resize', resizeHandler)
+  resizeHandler = () => timelineChart?.resize()
+  window.addEventListener('resize', resizeHandler)
 }
 
 const renderAspectChart = () => {
   if (!aspectChartRef.value || topAspects.value.length === 0) return
-  
-  const chart = echarts.init(aspectChartRef.value)
+
+  if (aspectChart) aspectChart.dispose()
+  aspectChart = echarts.init(aspectChartRef.value)
   const option = {
     tooltip: { trigger: 'item' },
     legend: { bottom: '0', icon: 'circle', itemWidth: 8, itemHeight: 8 },
@@ -428,18 +436,16 @@ const renderAspectChart = () => {
       }
     ]
   }
-  chart.setOption(option)
-  
+  aspectChart.setOption(option)
+
   // Interactive: Click pie to filter
-  chart.on('click', (params) => {
+  aspectChart.on('click', (params) => {
      if (params.name) {
         aspectFilter.value = aspectFilter.value === params.name ? '' : params.name
         viewMode.value = 'comments' // Switch to comments view if not already
         ElMessage.success(aspectFilter.value ? `已筛选切面: ${params.name}` : '已取消筛选')
      }
   })
-  
-  window.addEventListener('resize', () => chart.resize())
 }
 
 const jumpToVideo = (seconds: number) => {
@@ -497,6 +503,12 @@ const getPercentage = (ratio?: number) => {
 
 onMounted(() => {
   fetchAnalysisResult()
+})
+
+onBeforeUnmount(() => {
+  timelineChart?.dispose()
+  aspectChart?.dispose()
+  if (resizeHandler) window.removeEventListener('resize', resizeHandler)
 })
 </script>
 

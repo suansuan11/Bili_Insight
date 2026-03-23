@@ -73,20 +73,7 @@ async def fetch_popular_videos_task_async(pages: int = 1):
         _fetch_task_running = False
 
 
-def fetch_popular_videos_task(pages: int = 1):
-    """
-    同步包装：后台任务执行
-
-    Args:
-        pages: 爬取页数
-    """
-    # 在新的事件循环中运行异步任务
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(fetch_popular_videos_task_async(pages))
-    finally:
-        loop.close()
+# 移除同步包装函数，不再需要
 
 
 @router.post("/fetch")
@@ -111,8 +98,8 @@ async def trigger_fetch_popular_videos(
             detail="热门视频爬取任务正在执行中，请稍后再试"
         )
 
-    # 添加后台任务
-    background_tasks.add_task(fetch_popular_videos_task, pages)
+    # 直接添加异步任务，不使用同步包装
+    background_tasks.add_task(fetch_popular_videos_task_async, pages)
 
     return {
         "status": "success",
