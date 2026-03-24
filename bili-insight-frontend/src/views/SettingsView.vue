@@ -11,9 +11,9 @@
           <div class="setting-row">
             <div>
               <h3 class="setting-name">深色模式</h3>
-              <p class="setting-desc">启用深色主题界面（开发中）</p>
+              <p class="setting-desc">启用深色主题界面</p>
             </div>
-            <el-switch v-model="darkMode" />
+            <el-switch :model-value="isDark" @click="(e: MouseEvent) => toggleDark(e)" />
           </div>
           <el-divider />
           <div class="setting-row">
@@ -119,9 +119,11 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
 import request from '@/utils/request'
+import { useDarkMode } from '@/composables/useDarkMode'
+
+const { isDark, toggleDark } = useDarkMode()
 
 const activeTab = ref('account')
-const darkMode = ref(false)
 const autoRefresh = ref(true)
 const backendUrl = ref('http://localhost:8080')
 const pythonServiceUrl = ref('http://localhost:8001')

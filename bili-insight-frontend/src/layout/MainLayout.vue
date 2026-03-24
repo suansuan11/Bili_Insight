@@ -70,6 +70,10 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Odometer, TrendCharts, DataAnalysis, Monitor, Setting, User, Fold, Expand, SwitchButton } from '@element-plus/icons-vue'
+import { useDarkMode } from '@/composables/useDarkMode'
+
+// Ensure dark mode state is initialized in the layout
+useDarkMode()
 
 const router = useRouter()
 const isCollapsed = ref(false)
