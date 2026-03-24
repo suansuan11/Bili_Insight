@@ -3,6 +3,7 @@
 负责将爬取的数据存入MySQL数据库，并进行情感分析
 """
 from ..config import settings
+from ..utils.logger import logger
 import json
 import uuid
 from typing import List, Dict, Optional
@@ -159,7 +160,7 @@ class VideoStorageService:
             return round(score, 4), label
 
         except Exception as e:
-            print(f"情感分析失败: {e}")
+            logger.debug(f"情感分析失败: {e}")
             return 0.5, 'NEUTRAL'
 
     def detect_aspect(self, text: str) -> Optional[str]:
@@ -191,8 +192,10 @@ class VideoStorageService:
             保存的条数
         """
         if not comments:
+            logger.warning(f"[{task_id}] 评论列表为空，跳过保存")
             return 0
 
+        logger.info(f"[{task_id}] 开始保存评论 - 共{len(comments)}条")
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
@@ -204,7 +207,7 @@ class VideoStorageService:
                 """
 
                 inserted = 0
-                for comment in comments:
+                for idx, comment in enumerate(comments):
                     content = comment.get('content', '')
                     if not content:
                         continue
@@ -242,11 +245,18 @@ class VideoStorageService:
                         publish_time
                     ))
                     inserted += 1
+                    
+                    # 每100条记录输出一次进度
+                    if (idx + 1) % 100 == 0:
+                        logger.debug(f"[{task_id}] 评论保存进度: {idx + 1}/{len(comments)}")
 
                 conn.commit()
-                print(f"成功保存 {inserted} 条评论")
+                logger.info(f"[{task_id}] 评论保存完成 - 成功保存 {inserted} 条评论")
                 return inserted
 
+        except Exception as e:
+            logger.error(f"[{task_id}] 保存评论失败: {e}", exc_info=True)
+            raise
         finally:
             conn.close()
 
@@ -263,8 +273,10 @@ class VideoStorageService:
             保存的条数
         """
         if not danmakus:
+            logger.warning(f"[{task_id}] 弹幕列表为空，跳过保存")
             return 0
 
+        logger.info(f"[{task_id}] 开始保存弹幕 - 共{len(danmakus)}条")
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
@@ -275,7 +287,7 @@ class VideoStorageService:
                 """
 
                 inserted = 0
-                for dm in danmakus:
+                for idx, dm in enumerate(danmakus):
                     content = dm.get('content', '')
                     if not content:
                         continue
@@ -297,11 +309,18 @@ class VideoStorageService:
                         label
                     ))
                     inserted += 1
+                    
+                    # 每500条记录输出一次进度
+                    if (idx + 1) % 500 == 0:
+                        logger.debug(f"[{task_id}] 弹幕保存进度: {idx + 1}/{len(danmakus)}")
 
                 conn.commit()
-                print(f"成功保存 {inserted} 条弹幕")
+                logger.info(f"[{task_id}] 弹幕保存完成 - 成功保存 {inserted} 条弹幕")
                 return inserted
 
+        except Exception as e:
+            logger.error(f"[{task_id}] 保存弹幕失败: {e}", exc_info=True)
+            raise
         finally:
             conn.close()
 
@@ -316,10 +335,12 @@ class VideoStorageService:
         Returns:
             包含timeline和aspects的字典
         """
+        logger.info(f"[{task_id}] 开始生成情绪时间轴和切面分析")
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
                 # 1. 按10秒间隔聚合弹幕情感得分
+                logger.debug(f"[{task_id}] 查询弹幕数据生成时间轴")
                 sql_timeline = """
                     SELECT
                         FLOOR(dm_time / 10) * 10 as time_bucket,
@@ -341,8 +362,10 @@ class VideoStorageService:
                     }
                     for row in timeline_rows
                 ]
+                logger.info(f"[{task_id}] 生成时间轴数据点: {len(timeline)} 个")
 
                 # 2. 计算切面情感得分（基于评论）
+                logger.debug(f"[{task_id}] 查询评论数据生成切面分析")
                 sql_aspects = """
                     SELECT
                         aspect,
@@ -362,11 +385,13 @@ class VideoStorageService:
                     }
                     for row in aspect_rows
                 }
+                logger.info(f"[{task_id}] 生成切面分析: {len(aspects)} 个切面 - {list(aspects.keys())}")
 
                 # 3. 保存到sentiment_timeline表
                 timeline_json = json.dumps(timeline, ensure_ascii=False)
                 aspect_json = json.dumps(aspects, ensure_ascii=False)
 
+                logger.debug(f"[{task_id}] 保存时间轴和切面数据到数据库")
                 sql_insert = """
                     INSERT INTO sentiment_timeline (task_id, bvid, timeline_json, aspect_sentiment_json)
                     VALUES (%s, %s, %s, %s)
@@ -377,11 +402,15 @@ class VideoStorageService:
                 cursor.execute(sql_insert, (task_id, bvid, timeline_json, aspect_json))
                 conn.commit()
 
+                logger.info(f"[{task_id}] 情绪时间轴和切面分析生成完成")
                 return {
                     'timeline': timeline,
                     'aspects': aspects
                 }
 
+        except Exception as e:
+            logger.error(f"[{task_id}] 生成情绪时间轴失败: {e}", exc_info=True)
+            raise
         finally:
             conn.close()
 

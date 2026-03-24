@@ -5,6 +5,7 @@ from datetime import datetime
 
 from bilibili_api import video, hot, comment, Credential, sync
 from bilibili_api.comment import CommentResourceType
+from app.utils.logger import logger
 
 
 class BilibiliService:
@@ -29,12 +30,14 @@ class BilibiliService:
         Returns:
             视频信息字典
         """
+        logger.info(f"开始获取视频信息 - BVID: {bvid}")
         try:
             v = video.Video(bvid=bvid, credential=self.credential)
             info = await v.get_info()
+            logger.debug(f"B站API返回视频信息 - 标题: {info.get('title', 'N/A')}")
 
             # 格式化为统一结构
-            return {
+            result = {
                 'bvid': info['bvid'],
                 'aid': info['aid'],
                 'title': info['title'],
@@ -51,8 +54,10 @@ class BilibiliService:
                 'description': info['desc'],
                 'cover_url': info['pic']
             }
+            logger.info(f"视频信息获取成功 - {bvid} - {result['title']}")
+            return result
         except Exception as e:
-            print(f"获取视频 {bvid} 信息失败: {e}")
+            logger.error(f"获取视频 {bvid} 信息失败: {e}", exc_info=True)
             return None
 
     async def get_hot_videos(self, page: int = 1, page_size: int = 20) -> List[Dict]:
@@ -66,6 +71,7 @@ class BilibiliService:
         Returns:
             热门视频列表
         """
+        logger.info(f"开始获取热门视频 - 页码: {page}, 每页数量: {page_size}")
         try:
             # 使用bilibili-api的热门视频接口
             result = await hot.get_hot_videos(pn=page, ps=page_size)
@@ -93,9 +99,10 @@ class BilibiliService:
                 }
                 videos.append(video_info)
 
+            logger.info(f"热门视频获取成功 - 共{len(videos)}个视频")
             return videos
         except Exception as e:
-            print(f"获取热门视频失败: {e}")
+            logger.error(f"获取热门视频失败: {e}", exc_info=True)
             return []
 
     async def get_comments(self, bvid: str, max_count: int = 200) -> List[Dict]:
@@ -109,17 +116,20 @@ class BilibiliService:
         Returns:
             评论列表
         """
+        logger.info(f"开始获取评论 - BVID: {bvid}, 最大数量: {max_count}")
         try:
             # 先获取视频aid
             v = video.Video(bvid=bvid, credential=self.credential)
             info = await v.get_info()
             aid = info['aid']
+            logger.debug(f"视频AID: {aid}")
 
             all_comments = []
             page = 1
             offset = ""
 
             while len(all_comments) < max_count:
+                logger.debug(f"获取评论第{page}页 - 当前已获取: {len(all_comments)}条")
                 # 使用新接口get_comments_lazy（传递凭证）
                 result = await comment.get_comments_lazy(
                     oid=aid,
@@ -130,6 +140,7 @@ class BilibiliService:
 
                 replies = result.get('replies')
                 if not replies:
+                    logger.debug(f"第{page}页无更多评论，停止获取")
                     break
 
                 # 解析评论
@@ -142,10 +153,6 @@ class BilibiliService:
                         'reply_id': reply.get('rpid'),
                         'create_time': reply.get('ctime', 0)
                     }
-                    # Debug print for first few items
-                    if len(all_comments) < 3:
-                        print(f"[Debug] Comment Like: {comment_data['like']}")
-                    
                     all_comments.append(comment_data)
 
                     if len(all_comments) >= max_count:
@@ -154,6 +161,7 @@ class BilibiliService:
                 # 获取下一页offset
                 next_offset = result.get('cursor', {}).get('pagination_reply', {}).get('next_offset')
                 if not next_offset:
+                    logger.debug(f"已到最后一页，停止获取")
                     break
 
                 offset = next_offset
@@ -162,11 +170,11 @@ class BilibiliService:
                 # 避免请求过快
                 await asyncio.sleep(0.3)
 
-            print(f"共获取 {len(all_comments)} 条评论")
+            logger.info(f"评论获取完成 - 共获取 {len(all_comments)} 条评论")
             return all_comments
 
         except Exception as e:
-            print(f"获取评论失败: {e}")
+            logger.error(f"获取评论失败 - BVID: {bvid}: {e}", exc_info=True)
             return []
 
     async def get_danmakus(self, bvid: str) -> List[Dict]:
@@ -179,12 +187,15 @@ class BilibiliService:
         Returns:
             弹幕列表
         """
+        logger.info(f"开始获取弹幕 - BVID: {bvid}")
         try:
             v = video.Video(bvid=bvid, credential=self.credential)
             info = await v.get_info()
             cid = info['cid']
+            logger.debug(f"视频CID: {cid}")
 
             # 获取弹幕
+            logger.debug(f"调用B站API获取弹幕数据")
             danmakus_list = await v.get_danmakus(cid=cid)
 
             # 格式化弹幕数据
@@ -196,11 +207,11 @@ class BilibiliService:
                         'dm_time': float(dm.dm_time) # Ensure float seconds
                     })
 
-            print(f"共获取 {len(danmaku_data)} 条弹幕")
+            logger.info(f"弹幕获取完成 - 共获取 {len(danmaku_data)} 条弹幕")
             return danmaku_data
 
         except Exception as e:
-            print(f"获取弹幕失败: {e}")
+            logger.error(f"获取弹幕失败 - BVID: {bvid}: {e}", exc_info=True)
             return []
 
     # 同步包装方法

@@ -52,15 +52,17 @@ public class PythonApiClient {
      * @param bvid      视频BVID
      * @param taskId    Java端任务ID
      * @param sessdata  当前用户的B站SESSDATA（可为null，则Python使用全局凭证）
+     * @param maxComments 最大评论获取数量（默认20000）
      * @return 是否提交成功
      */
-    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata) {
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, Integer maxComments) {
         String url = pythonServiceUrl + "/api/analysis/video";
 
         try {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("bvid", bvid);
             requestBody.put("task_id", taskId);
+            requestBody.put("max_comments", maxComments != null ? maxComments : 20000);
             if (sessdata != null && !sessdata.trim().isEmpty()) {
                 requestBody.put("sessdata", sessdata);
             }
@@ -69,7 +71,8 @@ public class PythonApiClient {
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-            logger.info("Submitting analysis task: bvid={}, taskId={}, hasCredential={}", bvid, taskId, sessdata != null);
+            logger.info("Submitting analysis task: bvid={}, taskId={}, maxComments={}, hasCredential={}", 
+                bvid, taskId, maxComments, sessdata != null);
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {
@@ -84,6 +87,11 @@ public class PythonApiClient {
             logger.error("Error calling Python service: {}", e.getMessage(), e);
             return false;
         }
+    }
+    
+    /** 兼容旧调用：不传maxComments */
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata) {
+        return submitAnalysisTask(bvid, taskId, sessdata, 2000);
     }
 
     /** 兼容旧调用：不传sessdata（用于系统自动触发的监控任务） */

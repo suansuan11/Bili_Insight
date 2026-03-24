@@ -57,7 +57,7 @@
         
         <!-- Right: Key Statistics -->
         <el-col :lg="10" :md="24">
-          <div class="grid grid-cols-2 gap-4 h-full">
+          <div class="grid grid-cols-2 gap-4">
              <el-card class="stat-card" shadow="hover">
                 <div class="stat-content">
                   <div class="stat-icon positive">
@@ -105,20 +105,6 @@
                   </div>
                 </div>
               </el-card>
-
-              <!-- Aspect Sentiment Chart (Moved here) -->
-              <el-card class="col-span-2 chart-card flex-1" shadow="hover">
-                <template #header>
-                   <div class="flex justify-between items-center">
-                     <span class="font-bold">切面情感分布 (点击筛选)</span>
-                     <el-tooltip content="点击饼图扇区可筛选下方评论" placement="top">
-                        <el-icon class="text-gray-400"><InfoFilled /></el-icon>
-                     </el-tooltip>
-                   </div>
-                </template>
-                <div v-if="topAspects.length > 0" ref="aspectChartRef" class="h-[200px] w-full"></div>
-                <el-empty v-else description="暂无切面数据（该视频评论未匹配到分析维度）" :image-size="60" />
-              </el-card>
           </div>
         </el-col>
       </el-row>
@@ -136,6 +122,22 @@
         </template>
         <div v-if="hasTimelineData" ref="chartRef" class="chart-container"></div>
         <el-empty v-else description="暂无时间轴数据（弹幕数量不足或分析未完成）" />
+      </el-card>
+
+      <!-- Aspect Sentiment Chart (独立一行，全宽居中) -->
+      <el-card class="chart-card" shadow="hover">
+        <template #header>
+           <div class="flex justify-between items-center">
+             <span class="font-bold text-lg">切面情感分布</span>
+             <el-tooltip content="点击饼图扇区可筛选下方评论" placement="top">
+                <el-icon class="text-gray-400"><InfoFilled /></el-icon>
+             </el-tooltip>
+           </div>
+        </template>
+        <div v-if="topAspects.length > 0">
+          <div ref="aspectChartRef" class="aspect-chart-container-wide"></div>
+        </div>
+        <el-empty v-else description="暂无切面数据（该视频评论未匹配到分析维度）" :image-size="80" />
       </el-card>
 
       <!-- Comments and Danmaku Section -->
@@ -262,6 +264,27 @@ const availableAspects = computed(() => {
 })
 
 const topAspects = computed(() => {
+  // 优先从 aspectSentimentJson 读取（Python生成的聚合数据）
+  if (result.value?.timeline?.aspectSentimentJson) {
+    try {
+      const aspectData = typeof result.value.timeline.aspectSentimentJson === 'string' 
+        ? JSON.parse(result.value.timeline.aspectSentimentJson)
+        : result.value.timeline.aspectSentimentJson
+      
+      return Object.entries(aspectData)
+        .map(([aspect, data]: [string, any]) => ({ 
+          aspect, 
+          count: data.count || 0,
+          score: data.score || 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10)
+    } catch (e) {
+      console.error('Failed to parse aspectSentimentJson:', e)
+    }
+  }
+  
+  // 降级方案：从评论中统计
   if (!result.value?.comments) return []
   const counts: Record<string, number> = {}
   result.value.comments.forEach(c => {
@@ -270,7 +293,7 @@ const topAspects = computed(() => {
     }
   })
   return Object.entries(counts)
-    .map(([aspect, count]) => ({ aspect, count }))
+    .map(([aspect, count]) => ({ aspect, count, score: 0 }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 })
@@ -318,14 +341,19 @@ const fetchAnalysisResult = async () => {
     const response = await getAnalysisResult(taskId as any)
     if (response.code === 0) {
       result.value = response.data as any
+      
       // Initialize Player URL
       if (result.value?.task?.bvid) {
          playerUrl.value = `//player.bilibili.com/player.html?bvid=${result.value.task.bvid}&page=1&high_quality=1&danmaku=0`
       }
       
       await nextTick()
-      renderChart()
-      renderAspectChart()
+      
+      // 延迟渲染确保DOM完全准备好（修复图表不显示的问题）
+      setTimeout(() => {
+        renderChart()
+        renderAspectChart()
+      }, 200)
     } else {
       error.value = response.message || '加载失败'
     }
@@ -428,10 +456,15 @@ const renderChart = () => {
 }
 
 const renderAspectChart = () => {
-  if (!aspectChartRef.value || topAspects.value.length === 0) return
+  console.log('[renderAspectChart] Called, topAspects:', topAspects.value)
+  if (!aspectChartRef.value || topAspects.value.length === 0) {
+    console.log('[renderAspectChart] Early return - ref:', aspectChartRef.value, 'length:', topAspects.value.length)
+    return
+  }
 
   if (aspectChart) aspectChart.dispose()
   aspectChart = echarts.init(aspectChartRef.value)
+  console.log('[renderAspectChart] ECharts initialized')
   const option = {
     tooltip: { trigger: 'item' },
     legend: { bottom: '0', icon: 'circle', itemWidth: 8, itemHeight: 8 },
@@ -453,7 +486,9 @@ const renderAspectChart = () => {
       }
     ]
   }
+  console.log('[renderAspectChart] Option data:', option.series[0].data)
   aspectChart.setOption(option)
+  console.log('[renderAspectChart] Chart rendered successfully')
 
   // Interactive: Click pie to filter
   aspectChart.on('click', (params) => {
@@ -582,6 +617,12 @@ onBeforeUnmount(() => {
 .stat-value { font-size: 1.5rem; font-weight: 700; color: #1f2937; }
 
 .chart-container { width: 100%; height: 350px; }
+.aspect-chart-container { width: 100%; height: 200px; }
+.aspect-chart-container-wide { 
+  width: 600px; 
+  height: 350px; 
+  margin: 0 auto;
+}
 .comments-list { max-height: 600px; overflow-y: auto; }
 .comment-item { padding: 1rem; border-bottom: 1px solid #f3f4f6; border-radius: 8px; margin-bottom: 0.5rem; }
 

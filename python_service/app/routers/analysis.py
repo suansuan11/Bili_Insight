@@ -9,6 +9,7 @@ from typing import Optional
 from app.services.bilibili_service import BilibiliService
 from app.services.credential_manager import make_credential
 from app.services.video_storage_service import VideoStorageService
+from app.utils.logger import logger
 
 
 router = APIRouter()
@@ -59,35 +60,49 @@ async def analyze_video_background(
     credential
 ):
     """后台执行视频分析任务"""
+    logger.info(f"[{task_id}] 开始执行视频分析任务 - BVID: {bvid}, 最大评论数: {max_comments}")
     bili_service = BilibiliService(credential=credential)
     storage_service = VideoStorageService()
 
     try:
         # 1. 获取视频信息
+        logger.info(f"[{task_id}] 步骤1: 获取视频信息")
         await storage_service.update_task_progress(task_id, 10, "正在获取视频信息")
         video_info = await bili_service.get_video_info(bvid)
         if not video_info:
             raise Exception("获取视频信息失败")
+        logger.info(f"[{task_id}] 视频信息获取成功 - 标题: {video_info.get('title', 'N/A')}")
 
         # 2. 获取评论
+        logger.info(f"[{task_id}] 步骤2: 获取评论 (最多{max_comments}条)")
         await storage_service.update_task_progress(task_id, 30, "正在获取评论")
         comments = await bili_service.get_comments(bvid, max_count=max_comments)
-        await storage_service.save_comments(task_id, bvid, comments)
+        logger.info(f"[{task_id}] 评论获取完成 - 共{len(comments)}条")
+        
+        saved_comments = await storage_service.save_comments(task_id, bvid, comments)
+        logger.info(f"[{task_id}] 评论保存完成 - 成功保存{saved_comments}条")
 
         # 3. 获取弹幕
+        logger.info(f"[{task_id}] 步骤3: 获取弹幕")
         await storage_service.update_task_progress(task_id, 60, "正在获取弹幕")
         danmakus = await bili_service.get_danmakus(bvid)
-        await storage_service.save_danmakus(task_id, bvid, danmakus)
+        logger.info(f"[{task_id}] 弹幕获取完成 - 共{len(danmakus)}条")
+        
+        saved_danmakus = await storage_service.save_danmakus(task_id, bvid, danmakus)
+        logger.info(f"[{task_id}] 弹幕保存完成 - 成功保存{saved_danmakus}条")
 
         # 4. 生成情绪时间轴
+        logger.info(f"[{task_id}] 步骤4: 生成情绪时间轴和切面分析")
         await storage_service.update_task_progress(task_id, 90, "正在生成情绪时间轴")
-        await storage_service.generate_sentiment_timeline(task_id, bvid)
+        timeline_result = await storage_service.generate_sentiment_timeline(task_id, bvid)
+        logger.info(f"[{task_id}] 情绪时间轴生成完成 - 时间点: {len(timeline_result.get('timeline', []))}, 切面: {len(timeline_result.get('aspects', {}))}")
 
         # 5. 完成
         await storage_service.complete_task(task_id)
+        logger.info(f"[{task_id}] 视频分析任务完成")
 
     except Exception as e:
-        print(f"任务 {task_id} 失败: {e}")
+        logger.error(f"[{task_id}] 任务执行失败: {e}", exc_info=True)
         await storage_service.fail_task(task_id, str(e))
 
 
@@ -107,17 +122,21 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
 
     返回: 任务ID，前端通过轮询 /status/{task_id} 获取进度
     """
+    logger.info(f"收到视频分析请求 - BVID: {request.bvid}, 最大评论数: {request.max_comments}")
     try:
         # 获取凭证（由 Java 后端从 DB 读取后传入，无则游客模式）
         credential = make_credential(request.sessdata)
+        logger.debug(f"凭证创建完成 - 使用{'用户凭证' if request.sessdata else '游客模式'}")
 
         # 若 Java 侧已创建任务记录并传来 task_id，直接使用；否则自行创建
         storage_service = VideoStorageService()
         if request.task_id:
             task_id = request.task_id
+            logger.info(f"使用Java传入的任务ID: {task_id}")
             await storage_service.update_task_progress(task_id, 0, "任务已接收，准备开始")
         else:
             task_id = await storage_service.create_task(request.bvid, task_type="FULL_ANALYSIS")
+            logger.info(f"创建新任务 - 任务ID: {task_id}")
 
         # 添加后台任务
         background_tasks.add_task(
@@ -127,6 +146,7 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
             request.max_comments,
             credential
         )
+        logger.info(f"后台任务已添加 - 任务ID: {task_id}")
 
         return TaskResponse(
             task_id=task_id,
@@ -134,6 +154,7 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
         )
 
     except Exception as e:
+        logger.error(f"创建分析任务失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
 
 
