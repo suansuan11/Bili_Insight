@@ -5,6 +5,7 @@ from typing import Optional
 from ..database.repository import DatabaseRepository
 from ..services.bilibili_service import BilibiliService
 from ..services.credential_manager import make_credential
+from ..utils.logger import logger
 from typing import Dict
 import asyncio
 
@@ -32,10 +33,11 @@ async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
 
     try:
         _fetch_task_running = True
-        print(f"开始爬取热门视频（{pages}页）...")
+        logger.info(f"开始爬取热门视频（{pages}页）...")
 
         # 清空所有旧视频
-        db_repo.clear_all_popular_videos()
+        cleared_count = db_repo.clear_all_popular_videos()
+        logger.info(f"已清空 {cleared_count} 个旧视频")
 
         credential = None
         if sessdata:
@@ -53,29 +55,49 @@ async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
             if isinstance(result, list):
                 total_videos.extend(result)
             elif isinstance(result, Exception):
-                print(f"获取某页数据失败: {result}")
+                logger.error(f"获取某页数据失败: {result}")
 
-        print(f"收集到 {len(total_videos)} 个热门视频")
+        logger.info(f"收集到 {len(total_videos)} 个热门视频")
+
+        # 检查重复
+        unique_bvids = set()
+        duplicate_count = 0
+        for video in total_videos:
+            bvid = video.get('bvid')
+            if bvid in unique_bvids:
+                duplicate_count += 1
+            else:
+                unique_bvids.add(bvid)
+        
+        if duplicate_count > 0:
+            logger.info(f"发现 {duplicate_count} 个重复视频，唯一视频数: {len(unique_bvids)}")
+        else:
+            logger.info(f"无重复视频，唯一视频数: {len(unique_bvids)}")
 
         # 保存到数据库
         success_count = 0
+        duplicate_update_count = 0
         first_error = None
         for video in total_videos:
             try:
-                db_repo.insert_or_update_popular_video(video)
+                result = db_repo.insert_or_update_popular_video(video)
                 success_count += 1
             except Exception as e:
                 if not first_error:
                     first_error = str(e)
-                print(f"保存视频 {video.get('bvid')} 失败: {e}")
+                logger.error(f"保存视频 {video.get('bvid')} 失败: {e}")
 
+        logger.info(f"数据库操作完成 - 成功: {success_count}, 总数: {len(total_videos)}")
+        
         _last_fetch_result = {
             "status": "success" if success_count == len(total_videos) else "partial_success",
             "count": success_count,
             "total": len(total_videos),
+            "unique_count": len(unique_bvids),
+            "duplicates": duplicate_count,
             "first_error": first_error
         }
-        print(f"热门视频爬取完成，成功保存 {success_count}/{len(total_videos)} 个视频")
+        logger.info(f"热门视频爬取完成，成功保存 {success_count}/{len(total_videos)} 个视频（唯一: {len(unique_bvids)}）")
 
     except Exception as e:
         _last_fetch_result = {
@@ -83,7 +105,7 @@ async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
             "error": str(e),
             "count": 0
         }
-        print(f"爬取热门视频失败: {e}")
+        logger.error(f"爬取热门视频失败: {e}", exc_info=True)
     finally:
         _fetch_task_running = False
 

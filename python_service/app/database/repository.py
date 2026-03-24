@@ -217,14 +217,14 @@ class DatabaseRepository:
                 cursor.close()
 
     def clear_all_popular_videos(self):
-        """清空所有热门视频"""
+        """清空所有热门视频，返回清空的数量"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
                 sql = "DELETE FROM popular_videos"
                 cursor.execute(sql)
                 conn.commit()
-                print(f"已清空 {cursor.rowcount} 个视频")
+                return cursor.rowcount
             finally:
                 cursor.close()
 

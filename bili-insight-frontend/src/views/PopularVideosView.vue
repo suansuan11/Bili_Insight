@@ -160,7 +160,7 @@ const refreshVideos = async () => {
     const sessdata = userStr ? JSON.parse(userStr).biliSessdata : null
 
     const response = await axios.post('http://localhost:8001/api/popular/fetch',
-      { pages: 5, sessdata },
+      { pages: 8, sessdata },
       { headers: { 'X-API-Key': 'bili_insight_dev_api_key_2026' } }
     )
     ElMessage.success('爬取任务已启动，请稍后刷新页面查看')
