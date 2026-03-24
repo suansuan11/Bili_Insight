@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import popular, credential, login, analysis
 from .config import settings
-from .services.credential_manager import get_credential_manager
 from .middleware import APIKeyMiddleware
 
 # 创建FastAPI应用实例
@@ -13,6 +12,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# 添加API密钥认证中间件（必须在CORS之前）
+app.add_middleware(APIKeyMiddleware)
+
 # 配置CORS中间件
 app.add_middleware(
     CORSMiddleware,
@@ -21,12 +23,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 添加API密钥认证中间件
-app.add_middleware(APIKeyMiddleware)
-
-# 初始化凭证管理器（启动时加载默认凭证）
-get_credential_manager()
 
 # 注册路由
 app.include_router(analysis.router, prefix="/api/analysis", tags=["视频完整分析"])

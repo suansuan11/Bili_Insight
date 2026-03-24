@@ -14,4 +14,6 @@ public interface UserMapper {
                              @Param("sessdata") String sessdata,
                              @Param("jct") String jct,
                              @Param("buvid3") String buvid3);
+    /** 清除用户的B站凭证（注销账号绑定） */
+    int clearBiliCredential(@Param("userId") Long userId);
 }

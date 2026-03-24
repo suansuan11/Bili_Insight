@@ -32,3 +32,34 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Python ###
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+python_service/venv/
+python_service/.env
+python_service/logs/*.log
+python_service/credentials.json
+
+### Node ###
+bili-insight-frontend/node_modules/
+bili-insight-frontend/dist/
+bili-insight-frontend/.env.local
+bili-insight-frontend/.env.*.local
+
+### Logs ###
+*.log
+logs/
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Temp files ###
+*.tmp
+*.bak
+*.swp
+*~

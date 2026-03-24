@@ -2,13 +2,19 @@
   <div class="popular-videos-page">
     <div class="popular-videos-container">
       <header class="page-header">
-        <h1 class="page-title">热门视频榜单</h1>
-        <p class="page-subtitle">
-          Bilibili 当前最火热的视频内容
-          <span v-if="latestScrapedTime">
-            | 数据截至: {{ latestScrapedTime.slice(0, 16) }}
-          </span>
-        </p>
+        <div>
+          <h1 class="page-title">热门视频榜单</h1>
+          <p class="page-subtitle">
+            Bilibili 当前最火热的视频内容
+            <span v-if="latestScrapedTime">
+              | 数据截至: {{ latestScrapedTime.slice(0, 16) }}
+            </span>
+          </p>
+        </div>
+        <el-button type="primary" @click="refreshVideos" :loading="isRefreshing">
+          <el-icon class="mr-1"><Refresh /></el-icon>
+          重新爬取
+        </el-button>
       </header>
 
       <div v-if="isLoading" class="text-center py-20">加载中...</div>
@@ -49,10 +55,12 @@
               >
                 <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
               </a>
-              <p v-if="video.description" class="video-description">
-                {{ video.description }}
+              <p class="video-meta text-xs text-gray-500 mt-1">
+                {{ video.bvid }}
               </p>
-              <p v-else class="video-description invisible">占位</p>
+              <p v-if="video.description" class="video-description">
+                {{ truncateText(video.description, 100) }}
+              </p>
               <div class="stats-container grid grid-cols-4 gap-2 mt-2 text-sm text-gray-600">
                 <span class="stat-item flex items-center" title="播放量"><el-icon class="mr-1"><View /></el-icon> {{ formatNumber(video.viewCount) }}</span>
                 <span class="stat-item flex items-center" title="弹幕数"><el-icon class="mr-1"><ChatLineRound /></el-icon> {{ formatNumber(video.danmakuCount) }}</span>
@@ -100,11 +108,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPopularVideos } from '@/api/popular'
 import type { VideoInfo } from '@/types/video'
-import { View, ChatLineRound, Pointer, Coin, Star, Share, Comment } from '@element-plus/icons-vue'
+import { View, ChatLineRound, Pointer, Coin, Star, Share, Comment, Refresh } from '@element-plus/icons-vue'
 import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const router = useRouter()
 const videos = ref<VideoInfo[]>([])
+const isRefreshing = ref(false)
 
 const latestScrapedTime = computed(() => {
   if (videos.value.length === 0) return ''
@@ -142,6 +153,26 @@ const fetchPopularVideos = async () => {
 
 onMounted(fetchPopularVideos)
 
+const refreshVideos = async () => {
+  isRefreshing.value = true
+  try {
+    const userStr = localStorage.getItem('user')
+    const sessdata = userStr ? JSON.parse(userStr).biliSessdata : null
+
+    const response = await axios.post('http://localhost:8001/api/popular/fetch',
+      { pages: 5, sessdata },
+      { headers: { 'X-API-Key': 'bili_insight_dev_api_key_2026' } }
+    )
+    ElMessage.success('爬取任务已启动，请稍后刷新页面查看')
+    setTimeout(() => fetchPopularVideos(), 15000)
+  } catch (err: any) {
+    console.error('爬取失败:', err)
+    ElMessage.error(err.response?.data?.detail || '爬取失败，请重试')
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
 // 【新增】用于控制灯箱的状态
 const isModalVisible = ref(false)
 const modalImageUrl = ref('')
@@ -163,6 +194,11 @@ const formatNumber = (num: number): string =>
     : num >= 1e4
       ? (num / 1e4).toFixed(1) + '万'
       : String(num)
+
+const truncateText = (text: string, maxLength: number): string => {
+  if (!text) return ''
+  return text.length > maxLength ? text.slice(0, maxLength) + '...' : text
+}
 
 const formatDuration = (s: number): string =>
   s

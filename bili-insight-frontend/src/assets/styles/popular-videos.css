@@ -68,10 +68,22 @@
 
 /* 左侧封面图容器 */
 .thumbnail-container {
+  position: relative;
   width: 17rem;
   height: 11rem;
-
   flex-shrink: 0;
+}
+
+.duration-text {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

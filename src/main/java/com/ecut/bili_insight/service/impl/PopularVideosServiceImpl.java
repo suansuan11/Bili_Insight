@@ -24,6 +24,9 @@ public class PopularVideosServiceImpl implements IPopularVideosService {
     @Value("${python.service.url:http://localhost:8001}")
     private String pythonServiceUrl;
 
+    @Value("${python.service.api-key:}")
+    private String apiKey;
+
     public PopularVideosServiceImpl(
             PopularVideoMapper popularVideoMapper,
             RestTemplate restTemplate) {
@@ -40,11 +43,13 @@ public class PopularVideosServiceImpl implements IPopularVideosService {
         logger.info("触发Python服务异步爬取热门视频...");
 
         try {
-            String url = pythonServiceUrl + "/api/popular/fetch?pages=5&workers=10";
+            String url = pythonServiceUrl + "/api/popular/fetch";
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-API-Key", apiKey);
 
-            HttpEntity<Void> request = new HttpEntity<>(headers);
+            String requestBody = "{\"pages\": 5}";
+            HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {

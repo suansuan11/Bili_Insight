@@ -159,10 +159,15 @@ const checkLoginStatus = async () => {
       isLoggedIn.value = true
       try {
         const biliRes: any = await request.get('/insight/login/current_user')
-        // 无论是否成功都设置 userInfo，避免一直显示"正在获取"
-        userInfo.value = (biliRes && biliRes.is_login !== false) ? biliRes : { uname: '已登录', is_login: true }
+        if (biliRes && biliRes.is_login !== false) {
+          userInfo.value = biliRes
+        } else {
+          // sessdata 已失效，提示用户重新绑定
+          isLoggedIn.value = false
+          userInfo.value = null
+          ElMessage.warning('B站账号凭证已过期，请重新扫码绑定')
+        }
       } catch {
-        // 获取用户信息失败时显示基本状态
         userInfo.value = { uname: '已登录', is_login: true }
       }
     } else {
@@ -235,12 +240,17 @@ const stopPolling = () => {
 }
 
 const logout = async () => {
+  try {
+    await request.post('/insight/login/logout')
+  } catch (e) {
+    console.error('注销请求失败', e)
+  }
   isLoggedIn.value = false
   userInfo.value = null
   qrCodeUrl.value = ''
   qrCodeKey.value = ''
   loginStatus.value = ''
-  ElMessage.success('已注销')
+  ElMessage.success('已注销 B站账号绑定')
 }
 
 onMounted(() => {

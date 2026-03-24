@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from ..services.qrlogin_service import QRLoginService
-from ..services.credential_manager import get_credential_manager
+from ..services.credential_manager import make_credential
 
 
 router = APIRouter()
@@ -65,35 +65,24 @@ async def get_qrcode():
 
 
 @router.get("/status/{qrcode_key}", response_model=QRStatusResponse)
-async def check_qr_status(qrcode_key: str, auto_save: bool = True):
+async def check_qr_status(qrcode_key: str):
     """
     检查扫码状态
 
     前端流程：
     1. 每隔2秒调用此接口检查状态
-    2. status为"confirmed"时登录成功，可以保存sessdata
+    2. status为"confirmed"时登录成功，Java 后端负责将 sessdata 持久化到 DB
     3. status为"expired"时需要重新获取二维码
 
     Args:
         qrcode_key: 二维码Key
-        auto_save: 是否自动保存凭证到系统（默认true）
 
     Returns:
-        扫码状态
+        扫码状态（含 sessdata，由 Java 后端保存）
     """
     try:
         qr_service = get_qr_service()
         result = await qr_service.check_qrcode_status(qrcode_key)
-
-        # 登录成功且需要自动保存
-        if result["status"] == "confirmed" and auto_save:
-            cred_manager = get_credential_manager()
-            cred_manager.update_credential(
-                sessdata=result["sessdata"],
-                bili_jct=result.get("bili_jct"),
-                buvid3=result.get("buvid3"),
-                save_to_file=True
-            )
 
         return QRStatusResponse(
             status=result["status"],
@@ -113,46 +102,8 @@ async def check_qr_status(qrcode_key: str, auto_save: bool = True):
 @router.get("/current_user")
 async def get_current_user():
     """
-    获取当前登录用户信息
+    获取当前登录用户信息。
+    注意：Python 服务不再维护全局凭证，此接口已由 Java 后端的
+    /insight/login/current_user 替代（Java 从 DB 读取 sessdata 直接调用 B站 API）。
     """
-    try:
-        cred_manager = get_credential_manager()
-        credential = cred_manager.get_credential()
-
-        if not credential:
-            raise HTTPException(status_code=401, detail="未登录")
-
-        import httpx
-        cookies = {"SESSDATA": credential.sessdata}
-        if credential.bili_jct:
-            cookies["bili_jct"] = credential.bili_jct
-        if credential.buvid3:
-            cookies["buvid3"] = credential.buvid3
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://www.bilibili.com",
-        }
-
-        async with httpx.AsyncClient(cookies=cookies, headers=headers, timeout=10) as client:
-            resp = await client.get("https://api.bilibili.com/x/web-interface/nav")
-            result = resp.json()
-
-        if result.get("code") == 0 and result.get("data", {}).get("isLogin"):
-            data = result["data"]
-            return {
-                "is_login": True,
-                "mid": data.get("mid"),
-                "uname": data.get("uname"),
-                "face": data.get("face"),
-                "level_info": data.get("level_info", {}),
-                "vip_label": data.get("vip_label", {}),
-            }
-        else:
-            return {"is_login": False}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"current_user error: {e}")
-        return {"is_login": False}
+    return {"is_login": False, "message": "请通过 Java 后端接口 /insight/login/current_user 获取用户信息"}

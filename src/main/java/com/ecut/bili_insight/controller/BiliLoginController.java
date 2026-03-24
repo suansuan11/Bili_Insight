@@ -112,8 +112,8 @@ public class BiliLoginController {
     }
 
     /**
-     * 获取当前 B站登录状态（检查当前用户 DB 里是否有凭证）
-     * GET /insight/login/qrcode/poll?key=check  ← 前端 SettingsView 用这个来检查初始状态
+     * 获取当前 B站登录状态（检查当前用户 DB 里是否有凭证并验证有效性）
+     * GET /insight/login/status/check
      */
     @GetMapping("/status/check")
     public ResponseEntity<String> checkBiliLoginStatus(HttpServletRequest request) {
@@ -126,13 +126,42 @@ public class BiliLoginController {
             boolean hasCredential = user != null
                     && user.getBiliSessdata() != null
                     && !user.getBiliSessdata().isEmpty();
-            // 转发给 Python 验证 sessdata 有效性，同时返回用户信息
-            if (hasCredential) {
-                String currentUserInfo = pythonApiClient.pollLoginStatus("check");
-                return ResponseEntity.ok(currentUserInfo);
+            
+            if (!hasCredential) {
+                return ResponseEntity.ok("{\"is_login\":false}");
             }
-            return ResponseEntity.ok("{\"is_login\":false}");
+
+            // 验证 sessdata 有效性：调用 B站 nav 接口
+            try {
+                RestTemplate rt = new RestTemplate();
+                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                headers.set("Cookie", "SESSDATA=" + user.getBiliSessdata()
+                        + (user.getBiliJct() != null ? "; bili_jct=" + user.getBiliJct() : "")
+                        + (user.getBiliBuvid3() != null ? "; buvid3=" + user.getBiliBuvid3() : ""));
+                headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                headers.set("Referer", "https://www.bilibili.com");
+
+                org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+                ResponseEntity<String> biliResp = rt.exchange(
+                        "https://api.bilibili.com/x/web-interface/nav",
+                        org.springframework.http.HttpMethod.GET,
+                        entity,
+                        String.class
+                );
+
+                JsonNode root = objectMapper.readTree(biliResp.getBody());
+                if (root.path("code").asInt() == 0 && root.path("data").path("isLogin").asBoolean(false)) {
+                    return ResponseEntity.ok("{\"is_login\":true,\"has_credential\":true}");
+                } else {
+                    // sessdata 已失效
+                    return ResponseEntity.ok("{\"is_login\":false,\"has_credential\":true,\"expired\":true}");
+                }
+            } catch (Exception e) {
+                logger.warn("验证 sessdata 失败: {}", e.getMessage());
+                return ResponseEntity.ok("{\"is_login\":false,\"has_credential\":true,\"error\":true}");
+            }
         } catch (Exception e) {
+            logger.error("检查登录状态失败: {}", e.getMessage());
             return ResponseEntity.ok("{\"is_login\":false}");
         }
     }
@@ -188,6 +217,30 @@ public class BiliLoginController {
         } catch (Exception e) {
             logger.error("Failed to get bili user info: {}", e.getMessage());
             return ResponseEntity.ok("{\"is_login\":false}");
+        }
+    }
+
+    /**
+     * 注销 B站账号绑定（清除当前用户的 sessdata）
+     * POST /insight/login/logout
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<String> logoutBiliAccount(HttpServletRequest request) {
+        Long userId = extractUserId(request);
+        if (userId == null) {
+            return ResponseEntity.status(401).body("{\"error\":\"未登录\"}");
+        }
+        try {
+            int updated = userMapper.clearBiliCredential(userId);
+            if (updated > 0) {
+                logger.info("用户 {} 已注销 B站账号绑定", userId);
+                return ResponseEntity.ok("{\"success\":true,\"message\":\"注销成功\"}");
+            } else {
+                return ResponseEntity.ok("{\"success\":false,\"message\":\"未找到绑定记录\"}");
+            }
+        } catch (Exception e) {
+            logger.error("注销失败: {}", e.getMessage());
+            return ResponseEntity.status(500).body("{\"error\":\"注销失败: " + e.getMessage() + "\"}");
         }
     }
 

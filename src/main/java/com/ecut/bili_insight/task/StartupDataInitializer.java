@@ -76,21 +76,33 @@ public class StartupDataInitializer implements ApplicationRunner {
      */
     @PreDestroy
     public void stopPythonProcess() {
-        if (pythonProcess != null && pythonProcess.isAlive()) {
-            logger.info("[关闭] 正在停止 Python 子进程...");
-            pythonProcess.destroy();
-            try {
-                // 最多等 5 秒优雅关闭，超时则强制 kill
-                if (!pythonProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
-                    pythonProcess.destroyForcibly();
-                    logger.warn("[关闭] Python 进程未在 5s 内响应，已强制终止");
-                } else {
-                    logger.info("[关闭] Python 进程已正常退出");
-                }
-            } catch (InterruptedException e) {
+        if (pythonProcess == null) {
+            logger.info("[关闭] 未检测到由Java启动的Python进程，无需关闭");
+            return;
+        }
+
+        if (!pythonProcess.isAlive()) {
+            logger.info("[关闭] Python进程已停止");
+            return;
+        }
+
+        logger.info("[关闭] 检测到Python子进程运行中，发送SIGTERM信号，等待优雅关闭...");
+        pythonProcess.destroy();
+
+        try {
+            if (!pythonProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                logger.warn("[关闭] Python进程5秒内未响应，发送SIGKILL强制终止");
                 pythonProcess.destroyForcibly();
-                Thread.currentThread().interrupt();
+                pythonProcess.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+                logger.info("[关闭] Python进程已强制终止");
+            } else {
+                int exitCode = pythonProcess.exitValue();
+                logger.info("[关闭] Python进程已正常退出，退出码: {}", exitCode);
             }
+        } catch (InterruptedException e) {
+            logger.error("[关闭] 等待Python进程退出时被中断，强制终止");
+            pythonProcess.destroyForcibly();
+            Thread.currentThread().interrupt();
         }
     }
 

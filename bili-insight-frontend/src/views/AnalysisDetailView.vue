@@ -39,9 +39,9 @@
       <el-row :gutter="24">
         <!-- Left: Video Player -->
         <el-col :lg="14" :md="24" class="mb-6 lg:mb-0">
-          <el-card class="video-card h-full flex flex-col" :body-style="{ padding: '0', flex: 1, display: 'flex' }">
-             <!-- Video Player Iframe -->
-             <div class="w-full relative bg-black" style="padding-bottom: 56.25%;">
+          <el-card class="video-card" :body-style="{ padding: '0' }">
+             <!-- Video Player Iframe: 16:9 aspect ratio -->
+             <div class="video-wrapper">
                 <iframe 
                    v-if="playerUrl"
                    :src="playerUrl" 
@@ -50,7 +50,6 @@
                    frameborder="no" 
                    framespacing="0" 
                    allowfullscreen="true" 
-                   class="absolute top-0 left-0 w-full h-full"
                 ></iframe>
              </div>
           </el-card>
@@ -117,7 +116,8 @@
                      </el-tooltip>
                    </div>
                 </template>
-                <div ref="aspectChartRef" class="h-[200px] w-full"></div>
+                <div v-if="topAspects.length > 0" ref="aspectChartRef" class="h-[200px] w-full"></div>
+                <el-empty v-else description="暂无切面数据（该视频评论未匹配到分析维度）" :image-size="60" />
               </el-card>
           </div>
         </el-col>
@@ -134,8 +134,8 @@
             </div>
           </div>
         </template>
-        <div v-if="result.timeline" ref="chartRef" class="chart-container"></div>
-        <el-empty v-else description="暂无时间轴数据" />
+        <div v-if="hasTimelineData" ref="chartRef" class="chart-container"></div>
+        <el-empty v-else description="暂无时间轴数据（弹幕数量不足或分析未完成）" />
       </el-card>
 
       <!-- Comments and Danmaku Section -->
@@ -275,6 +275,18 @@ const topAspects = computed(() => {
     .slice(0, 10)
 })
 
+const hasTimelineData = computed(() => {
+  if (!result.value?.timeline) return false
+  const jsonStr = result.value.timeline.timelineJson || result.value.timeline.timelineData
+  if (!jsonStr) return false
+  try {
+    const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr
+    return Array.isArray(data) && data.length > 0
+  } catch {
+    return false
+  }
+})
+
 const filteredComments = computed<VideoComment[]>(() => {
   if (!result.value?.comments) return []
   return result.value.comments.filter(c => {
@@ -326,15 +338,15 @@ const fetchAnalysisResult = async () => {
 }
 
 const renderChart = () => {
-  if (!chartRef.value || !result.value?.timeline) return
+  if (!chartRef.value || !hasTimelineData.value) return
 
   if (timelineChart) timelineChart.dispose()
   timelineChart = echarts.init(chartRef.value)
 
-  // Parse timeline data
+  // Parse timeline data - support both field name conventions
   let timelineData: any[] = []
   try {
-    const jsonStr = result.value.timeline.timelineJson || result.value.timeline.timelineData
+    const jsonStr = result.value!.timeline!.timelineJson || result.value!.timeline!.timelineData
     if (typeof jsonStr === 'string') {
       timelineData = JSON.parse(jsonStr)
     } else {
@@ -345,28 +357,34 @@ const renderChart = () => {
     return
   }
 
+  if (!timelineData || timelineData.length === 0) return
+
+  // Normalize field names: Python stores {time, score, count}, frontend expects {time_point, avg_sentiment}
+  const normalized = timelineData.map((item: any) => ({
+    time_point: item.time_point ?? item.time ?? 0,
+    avg_sentiment: item.avg_sentiment ?? item.score ?? 0.5,
+    danmaku_count: item.danmaku_count ?? item.count ?? 0
+  }))
+
   const option = {
     tooltip: { 
       trigger: 'axis',
       axisPointer: { type: 'line', lineStyle: { color: '#6366f1', width: 2 } },
       formatter: (params: any) => {
         if (!params || !params.length) return ''
-        const item = timelineData[params[0].dataIndex]
-        const timeVal = item.time_point || item.time
-        const sentimentVal = item.avg_sentiment ?? item.score
-        const countVal = item.danmaku_count ?? item.count
-        return `<strong>${formatTime(timeVal)}</strong><br/>
+        const item = normalized[params[0].dataIndex]
+        return `<strong>${formatTime(item.time_point)}</strong><br/>
                 <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#6366f1;"></span>
-                情感均值: ${sentimentVal}<br/>
+                情感均值: ${item.avg_sentiment}<br/>
                 <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#e5e7eb;"></span>
-                弹幕数量: ${countVal}`
+                弹幕数量: ${item.danmaku_count}`
       }
     },
     grid: { left: '40', right: '20', bottom: '30', top: '30', containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: timelineData.map((item: any) => item.time_point || item.time),
+      data: normalized.map((item: any) => item.time_point),
       axisLabel: { formatter: (val: any) => formatTime(val) }
     },
     yAxis: {
@@ -382,7 +400,7 @@ const renderChart = () => {
         smooth: 0.3,
         symbol: 'none',
         lineStyle: { width: 3, shadowColor: 'rgba(99, 102, 241, 0.3)', shadowBlur: 10 },
-        data: timelineData.map((item: any) => item.avg_sentiment ?? item.score),
+        data: normalized.map((item: any) => item.avg_sentiment),
         itemStyle: { color: '#6366f1' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -399,9 +417,8 @@ const renderChart = () => {
   // Interactive: Click to jump video
   timelineChart.on('click', (params) => {
      if (params && params.dataIndex !== undefined) {
-        const item = timelineData[params.dataIndex]
-        const seconds = item.time_point || item.time
-        jumpToVideo(seconds)
+        const item = normalized[params.dataIndex]
+        jumpToVideo(item.time_point)
      }
   })
 
@@ -517,6 +534,22 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   overflow: hidden;
   background: #000;
+  border: none;
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 */
+  background: #000;
+}
+
+.video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   border: none;
 }
 

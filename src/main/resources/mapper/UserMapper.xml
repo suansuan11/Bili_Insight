@@ -40,4 +40,14 @@
         WHERE id = #{userId}
     </update>
 
+    <update id="clearBiliCredential">
+        UPDATE `user`
+        SET bili_sessdata = NULL,
+            bili_jct      = NULL,
+            bili_buvid3   = NULL,
+            bili_login_at = NULL,
+            updated_at    = NOW()
+        WHERE id = #{userId}
+    </update>
+
 </mapper>

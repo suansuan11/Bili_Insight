@@ -216,6 +216,18 @@ class DatabaseRepository:
             finally:
                 cursor.close()
 
+    def clear_all_popular_videos(self):
+        """清空所有热门视频"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                sql = "DELETE FROM popular_videos"
+                cursor.execute(sql)
+                conn.commit()
+                print(f"已清空 {cursor.rowcount} 个视频")
+            finally:
+                cursor.close()
+
     def insert_or_update_popular_video(self, video_info: Dict):
         """
         插入或更新热门视频信息
@@ -228,12 +240,13 @@ class DatabaseRepository:
             try:
                 sql = """
                 INSERT INTO popular_videos
-                (bvid, aid, title, author, publish_date, duration,
+                (bvid, aid, title, description, author, publish_date, duration,
                  view_count, like_count, coin_count, favorite_count, share_count,
                  danmaku_count, comment_count, cover_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
+                    description = VALUES(description),
                     view_count = VALUES(view_count),
                     like_count = VALUES(like_count),
                     coin_count = VALUES(coin_count),
@@ -284,6 +297,7 @@ class DatabaseRepository:
                     video_info.get('bvid'),
                     video_info.get('aid', 0),
                     video_info.get('title'),
+                    video_info.get('description', ''),
                     author,
                     publish_date,
                     video_info.get('duration', 0),

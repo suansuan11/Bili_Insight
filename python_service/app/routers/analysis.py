@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.services.bilibili_service import BilibiliService
-from app.services.credential_manager import get_credential_manager
+from app.services.credential_manager import make_credential
 from app.services.video_storage_service import VideoStorageService
 
 
@@ -108,9 +108,8 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
     返回: 任务ID，前端通过轮询 /status/{task_id} 获取进度
     """
     try:
-        # 获取凭证
-        credential_manager = get_credential_manager()
-        credential = credential_manager.get_credential(request.sessdata)
+        # 获取凭证（由 Java 后端从 DB 读取后传入，无则游客模式）
+        credential = make_credential(request.sessdata)
 
         # 若 Java 侧已创建任务记录并传来 task_id，直接使用；否则自行创建
         storage_service = VideoStorageService()

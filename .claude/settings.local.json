@@ -21,7 +21,20 @@
       "Bash(/dev/null:*)",
       "Bash(npm run:*)",
       "Bash(find /Users/dio/project/Bili_Insight -name *UserMapper* -o -name *User.xml)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pip install DBUtils)",
+      "Bash(mvn test:*)",
+      "Bash(pip list:*)",
+      "Bash(pip3 list:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m venv venv)",
+      "Bash(source venv/bin/activate)",
+      "Bash(curl:*)",
+      "Bash(kill:*)",
+      "Bash(uvicorn app.main:app --host 0.0.0.0 --port 8001)",
+      "Bash(chmod:*)",
+      "Bash(mysql -uroot -pLiuyi325 bili_insight_db -e \"SELECT bvid, title, LEFT\\(description, 60\\) as description FROM popular_videos WHERE description IS NOT NULL AND description != '''' ORDER BY scraped_at DESC LIMIT 5;\")"
     ]
   }
 }

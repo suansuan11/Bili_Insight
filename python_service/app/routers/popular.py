@@ -1,24 +1,32 @@
 """热门视频API路由 - 优化重构版"""
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 from ..database.repository import DatabaseRepository
 from ..services.bilibili_service import BilibiliService
+from ..services.credential_manager import make_credential
 from typing import Dict
 import asyncio
 
 router = APIRouter()
 db_repo = DatabaseRepository()
 
+class FetchRequest(BaseModel):
+    pages: int = 1
+    sessdata: Optional[str] = None
+
 # 全局变量跟踪任务状态
 _fetch_task_running = False
 _last_fetch_result = {"status": "never_run", "count": 0}
 
 
-async def fetch_popular_videos_task_async(pages: int = 1):
+async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
     """
     后台任务：爬取热门视频并存入数据库（异步版本）
 
     Args:
         pages: 爬取页数
+        sessdata: 用户B站凭证
     """
     global _fetch_task_running, _last_fetch_result
 
@@ -26,7 +34,14 @@ async def fetch_popular_videos_task_async(pages: int = 1):
         _fetch_task_running = True
         print(f"开始爬取热门视频（{pages}页）...")
 
-        bili_service = BilibiliService()
+        # 清空所有旧视频
+        db_repo.clear_all_popular_videos()
+
+        credential = None
+        if sessdata:
+            credential = make_credential(sessdata)
+
+        bili_service = BilibiliService(credential=credential)
         total_videos = []
 
         # 并发获取多页数据
@@ -79,13 +94,13 @@ async def fetch_popular_videos_task_async(pages: int = 1):
 @router.post("/fetch")
 async def trigger_fetch_popular_videos(
     background_tasks: BackgroundTasks,
-    pages: int = 1
+    request: FetchRequest
 ):
     """
     触发热门视频爬取任务（后台执行）
 
     Args:
-        pages: 爬取页数（默认1页）
+        request: 包含pages和sessdata的请求体
 
     Returns:
         任务提交响应
@@ -99,11 +114,11 @@ async def trigger_fetch_popular_videos(
         )
 
     # 直接添加异步任务，不使用同步包装
-    background_tasks.add_task(fetch_popular_videos_task_async, pages)
+    background_tasks.add_task(fetch_popular_videos_task_async, request.pages, request.sessdata)
 
     return {
         "status": "success",
-        "message": f"热门视频爬取任务已启动（{pages}页）",
+        "message": f"热门视频爬取任务已启动（{request.pages}页）",
         "note": "任务将在后台执行，使用bilibili-api异步并发获取"
     }
 

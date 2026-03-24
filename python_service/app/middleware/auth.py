@@ -8,6 +8,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not settings.api_key:
             return await call_next(request)
 
+        # 跳过OPTIONS预检请求和公开路径
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         if request.url.path in ["/", "/health", "/docs", "/openapi.json"]:
             return await call_next(request)
 

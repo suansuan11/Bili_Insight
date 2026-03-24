@@ -4,7 +4,7 @@ spring:
   datasource:
       url: jdbc:mysql://localhost:3306/bili_insight_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowLoadLocalInfile=true&allowLocalInfileInMultiQueries=true&allowUrlInLocalInfile=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowLoadLocalInfile=true&allowLocalInfileInMultiQueries=true
       username: ${DB_USERNAME:root}
-      password: ${DB_PASSWORD}
+      password: ${DB_PASSWORD:Liuyi325}
       driver-class-name: com.mysql.cj.jdbc.Driver
   # 异步任务线程池配置
   task:
@@ -23,14 +23,14 @@ python:
     data-output-directory: data
   service:
     url: ${PYTHON_SERVICE_URL:http://localhost:8001}
-    api-key: ${PYTHON_API_KEY}
+    api-key: ${PYTHON_API_KEY:bili_insight_dev_api_key_2026}
     working-directory: ${PYTHON_SERVICE_DIR:python_service}
-    start-command: ${PYTHON_START_CMD:python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001}
+    start-command: ${PYTHON_START_CMD:bash start_service.sh}
     health-check-timeout: ${PYTHON_HEALTH_TIMEOUT:30}
     task-timeout: ${PYTHON_TASK_TIMEOUT:1800}
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:bili_insight_jwt_secret_key_for_development_only_min_32_chars}
   expiration: 36000000
 
 mybatis:
