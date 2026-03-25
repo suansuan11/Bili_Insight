@@ -136,11 +136,12 @@ public class PythonApiClient {
             HttpEntity<Void> request = new HttpEntity<>(createHeaders());
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
             boolean isHealthy = response.getStatusCode() == HttpStatus.OK;
-            logger.info("Python service health check: {}", isHealthy ? "OK" : "FAILED");
+            logger.debug("Python service health check: {}", isHealthy ? "OK" : "FAILED");
             return isHealthy;
 
         } catch (Exception e) {
-            logger.error("Python service health check failed: {}", e.getMessage());
+            // 不记录错误日志，让调用方决定如何处理（启动时连接失败是正常的）
+            logger.debug("Python service health check failed: {}", e.getMessage());
             return false;
         }
     }

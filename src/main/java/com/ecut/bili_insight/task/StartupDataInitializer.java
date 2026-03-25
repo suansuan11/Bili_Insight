@@ -113,11 +113,15 @@ public class StartupDataInitializer implements ApplicationRunner {
      * - 未运行且无启动命令：抛出异常
      */
     private void ensurePythonServiceRunning() throws Exception {
-        if (pythonApiClient.checkHealth()) {
+        boolean isRunning = pythonApiClient.checkHealth();
+        
+        if (isRunning) {
             logger.info("[启动] Python 服务已在运行，跳过启动");
             return;
         }
 
+        logger.info("[启动] Python 服务未运行，准备启动...");
+        
         if (pythonStartCommand == null || pythonStartCommand.trim().isEmpty()) {
             throw new IllegalStateException(
                 "Python 服务未运行，且未配置 python.service.start-command，请手动启动后重试");
