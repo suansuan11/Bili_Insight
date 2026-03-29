@@ -8,18 +8,18 @@ import json
 import uuid
 from typing import List, Dict, Optional
 from datetime import datetime
-import jieba
-import jieba.analyse
-from snownlp import SnowNLP
 import pymysql
 from pymysql.cursors import DictCursor
+
+from .sentiment_analyzer import SentimentAnalyzer
+from .aspect_analyzer import AspectAnalyzer
 
 
 class VideoStorageService:
     """视频数据存储服务"""
 
     def __init__(self):
-        """初始化数据库连接"""
+        """初始化数据库连接与分析模块"""
         self.db_config = {
             'host': settings.db_host,
             'port': settings.db_port,
@@ -29,32 +29,9 @@ class VideoStorageService:
             'charset': 'utf8mb4'
         }
 
-        # ABSA切面关键词库（通用 + 数码 + 美食 + 游戏 + 生活）
-        self.aspect_keywords = {
-            # 数码/产品类
-            '外观': ['外观', '颜值', '设计', '外形', '好看', '漂亮', '丑', '美', '造型', '外壳', '配色'],
-            '性能': ['性能', '配置', '速度', '快', '慢', '卡', '流畅', '处理器', '芯片', '帧率', '延迟'],
-            '价格': ['价格', '贵', '便宜', '性价比', '值', '划算', '钱', '元', '块', '折扣', '优惠'],
-            '续航': ['续航', '电池', '耗电', '充电', '电量', '待机', '掉电'],
-            '拍照': ['拍照', '摄像', '相机', '照片', '镜头', '像素', '夜拍', '画质'],
-            '屏幕': ['屏幕', '显示', '分辨率', '刷新率', '亮度', '色彩', '护眼'],
-            '系统': ['系统', '软件', '界面', 'UI', '操作', '体验', '功能', '更新'],
-            '售后': ['售后', '服务', '维修', '保修', '客服', '退换', '质量'],
-            # 美食/食品类
-            '口味': ['好吃', '难吃', '味道', '口感', '香', '甜', '咸', '辣', '酸', '苦', '鲜', '腻', '清淡', '重口'],
-            '食材': ['食材', '原料', '配料', '新鲜', '食品', '原材料', '用料'],
-            '分量': ['分量', '份量', '多', '少', '够吃', '不够', '量大', '量少', '性价比'],
-            '环境': ['环境', '装修', '氛围', '干净', '卫生', '脏', '嘈杂', '安静', '位置'],
-            # 内容/视频类
-            '内容': ['内容', '干货', '有用', '没用', '信息量', '知识', '教程', '讲解', '清晰'],
-            '剪辑': ['剪辑', '节奏', '画面', '特效', '转场', '字幕', '配乐', 'bgm', '音效'],
-            '主播': ['主播', 'up主', 'up', '博主', '作者', '讲得', '说得', '表达', '幽默', '有趣'],
-            # 游戏类
-            '玩法': ['玩法', '操作', '手感', '机制', '系统', '模式', '难度', '平衡'],
-            '画面': ['画面', '画质', '特效', '渲染', '分辨率', '帧数', '优化'],
-            # 通用情感
-            '整体': ['总体', '整体', '总的来说', '综合', '推荐', '不推荐', '值得', '后悔']
-        }
+        # 注入情感分析模块（单例，懒加载模型）
+        self.sentiment_analyzer = SentimentAnalyzer()
+        self.aspect_analyzer = AspectAnalyzer(self.sentiment_analyzer)
 
     def get_connection(self):
         """获取数据库连接"""
@@ -132,56 +109,25 @@ class VideoStorageService:
         finally:
             conn.close()
 
-    def calculate_sentiment(self, text: str) -> tuple:
-        """
-        计算文本情感得分
+    def _analyze_comment_sentiment(self, content: str) -> dict:
+        """分析评论情感（含 aspect 多切面）"""
+        sentiment = self.sentiment_analyzer.analyze(content, text_type="comment")
+        aspect_details = self.aspect_analyzer.analyze(content, text_type="comment")
+        primary_aspect = self.aspect_analyzer.get_primary_aspect(aspect_details)
+        return {
+            "sentiment": sentiment,
+            "aspect_details": aspect_details,
+            "primary_aspect": primary_aspect,
+        }
 
-        Args:
-            text: 文本内容
-
-        Returns:
-            (score, label) - 得分(0-1)和标签(POSITIVE/NEUTRAL/NEGATIVE)
-        """
-        if not text or len(text.strip()) == 0:
-            return 0.5, 'NEUTRAL'
-
-        try:
-            s = SnowNLP(text)
-            score = s.sentiments  # 0-1之间，越接近1越正面
-
-            # 使用配置中的阈值
-            if score >= settings.sentiment_positive_threshold:
-                label = 'POSITIVE'
-            elif score <= settings.sentiment_negative_threshold:
-                label = 'NEGATIVE'
-            else:
-                label = 'NEUTRAL'
-
-            return round(score, 4), label
-
-        except Exception as e:
-            logger.debug(f"情感分析失败: {e}")
-            return 0.5, 'NEUTRAL'
-
-    def detect_aspect(self, text: str) -> Optional[str]:
-        """
-        检测文本所属的切面维度
-
-        Args:
-            text: 文本内容
-
-        Returns:
-            切面标签或None
-        """
-        for aspect, keywords in self.aspect_keywords.items():
-            for keyword in keywords:
-                if keyword in text:
-                    return aspect
-        return None
+    def _analyze_danmaku_sentiment(self, content: str) -> dict:
+        """分析弹幕情感（仅主情感，不做 aspect）"""
+        sentiment = self.sentiment_analyzer.analyze(content, text_type="danmaku")
+        return {"sentiment": sentiment}
 
     async def save_comments(self, task_id: str, bvid: str, comments: List[Dict]) -> int:
         """
-        保存评论到数据库并进行情感分析
+        保存评论到数据库并进行情感分析（Transformer 升级版）
 
         Args:
             task_id: 任务ID
@@ -201,9 +147,14 @@ class VideoStorageService:
             with conn.cursor() as cursor:
                 sql = """
                     INSERT INTO video_comment
-                    (comment_id, task_id, bvid, username, gender,
-                     content, like_count, sentiment_score, sentiment_label, aspect, publish_time)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (comment_id, task_id, bvid, username, gender, text_type,
+                     content, normalized_content, like_count,
+                     sentiment_score, sentiment_label,
+                     sentiment_confidence, sentiment_intensity,
+                     sentiment_source, sentiment_version,
+                     emotion_tags_json, aspect, aspect_details_json,
+                     publish_time)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
 
                 inserted = 0
@@ -212,24 +163,45 @@ class VideoStorageService:
                     if not content:
                         continue
 
-                    # 情感分析
-                    score, label = self.calculate_sentiment(content)
+                    # 情感分析（Transformer + 规则层 + aspect 多切面）
+                    try:
+                        analysis = self._analyze_comment_sentiment(content)
+                        sentiment = analysis["sentiment"]
+                        aspect_details = analysis["aspect_details"]
+                        primary_aspect = analysis["primary_aspect"]
+                    except Exception as e:
+                        logger.warning(f"[{task_id}] 评论情感分析失败，使用默认值: {e}")
+                        sentiment = {
+                            "label": "NEUTRAL", "score": 0.0, "confidence": 0.0,
+                            "intensity": "WEAK", "source": "error_fallback",
+                            "version": "error", "emotion_tags": [],
+                        }
+                        aspect_details = []
+                        primary_aspect = None
 
-                    # 切面检测
-                    aspect = self.detect_aspect(content)
+                    normalized_content = sentiment.get("normalized_text", content)
+                    emotion_tags_json = json.dumps(
+                        sentiment.get("emotion_tags", []), ensure_ascii=False
+                    )
+                    aspect_details_json = (
+                        json.dumps(aspect_details, ensure_ascii=False)
+                        if aspect_details else None
+                    )
 
                     # 解析时间戳
                     publish_time = None
                     if comment.get('create_time'):
                         try:
                             publish_time = datetime.fromtimestamp(comment['create_time'])
-                        except:
+                        except Exception:
                             pass
 
-                    # 使用reply_id作为comment_id主键
-                    comment_id = comment.get('reply_id', 0)
-                    if not comment_id:
-                        comment_id = abs(hash(f"{bvid}_{content}_{inserted}")) % (2**63)
+                    # 生成任务内唯一 comment_id，避免不同任务因 reply_id 冲突污染彼此数据
+                    source_reply_id = comment.get('reply_id', 0)
+                    if source_reply_id:
+                        comment_id = abs(hash(f"{task_id}_{source_reply_id}")) % (2**63)
+                    else:
+                        comment_id = abs(hash(f"{task_id}_{bvid}_{content}_{inserted}")) % (2**63)
 
                     cursor.execute(sql, (
                         comment_id,
@@ -237,15 +209,23 @@ class VideoStorageService:
                         bvid,
                         comment.get('author', '未知用户'),
                         comment.get('gender', '未知'),
+                        'comment',
                         content,
+                        normalized_content,
                         comment.get('like', 0),
-                        score,
-                        label,
-                        aspect,
+                        sentiment.get('score', 0.0),
+                        sentiment.get('label', 'NEUTRAL'),
+                        sentiment.get('confidence', 0.0),
+                        sentiment.get('intensity', 'WEAK'),
+                        sentiment.get('source', ''),
+                        sentiment.get('version', ''),
+                        emotion_tags_json,
+                        primary_aspect,
+                        aspect_details_json,
                         publish_time
                     ))
                     inserted += 1
-                    
+
                     # 每100条记录输出一次进度
                     if (idx + 1) % 100 == 0:
                         logger.debug(f"[{task_id}] 评论保存进度: {idx + 1}/{len(comments)}")
@@ -262,7 +242,7 @@ class VideoStorageService:
 
     async def save_danmakus(self, task_id: str, bvid: str, danmakus: List[Dict]) -> int:
         """
-        保存弹幕到数据库并进行情感分析
+        保存弹幕到数据库并进行情感分析（Transformer 升级版）
 
         Args:
             task_id: 任务ID
@@ -282,8 +262,13 @@ class VideoStorageService:
             with conn.cursor() as cursor:
                 sql = """
                     INSERT INTO video_danmaku
-                    (danmaku_id, task_id, bvid, content, dm_time, appear_time, sentiment_score, sentiment_label)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (danmaku_id, task_id, bvid, text_type, content, normalized_content,
+                     dm_time, appear_time,
+                     sentiment_score, sentiment_label,
+                     sentiment_confidence, sentiment_intensity,
+                     sentiment_source, sentiment_version,
+                     emotion_tags_json)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
 
                 inserted = 0
@@ -292,8 +277,23 @@ class VideoStorageService:
                     if not content:
                         continue
 
-                    # 情感分析
-                    score, label = self.calculate_sentiment(content)
+                    # 情感分析（仅主情感，弹幕不强制做 aspect）
+                    try:
+                        analysis = self._analyze_danmaku_sentiment(content)
+                        sentiment = analysis["sentiment"]
+                    except Exception as e:
+                        logger.warning(f"[{task_id}] 弹幕情感分析失败，使用默认值: {e}")
+                        sentiment = {
+                            "label": "NEUTRAL", "score": 0.0, "confidence": 0.0,
+                            "intensity": "WEAK", "source": "error_fallback",
+                            "version": "error", "emotion_tags": [],
+                            "normalized_text": content,
+                        }
+
+                    normalized_content = sentiment.get("normalized_text", content)
+                    emotion_tags_json = json.dumps(
+                        sentiment.get("emotion_tags", []), ensure_ascii=False
+                    )
 
                     dm_time = int(dm.get('dm_time', 0))
                     danmaku_id = abs(hash(f"{bvid}_{content}_{dm_time}_{inserted}")) % (2**63)
@@ -302,14 +302,21 @@ class VideoStorageService:
                         danmaku_id,
                         task_id,
                         bvid,
+                        'danmaku',
                         content,
+                        normalized_content,
                         dm_time,
                         dm_time,  # appear_time = dm_time
-                        score,
-                        label
+                        sentiment.get('score', 0.0),
+                        sentiment.get('label', 'NEUTRAL'),
+                        sentiment.get('confidence', 0.0),
+                        sentiment.get('intensity', 'WEAK'),
+                        sentiment.get('source', ''),
+                        sentiment.get('version', ''),
+                        emotion_tags_json,
                     ))
                     inserted += 1
-                    
+
                     # 每500条记录输出一次进度
                     if (idx + 1) % 500 == 0:
                         logger.debug(f"[{task_id}] 弹幕保存进度: {idx + 1}/{len(danmakus)}")
@@ -339,11 +346,13 @@ class VideoStorageService:
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
-                # 1. 按10秒间隔聚合弹幕情感得分
+                # 1. 按10秒间隔聚合弹幕情感得分（confidence 加权均值）
                 logger.debug(f"[{task_id}] 查询弹幕数据生成时间轴")
                 sql_timeline = """
                     SELECT
                         FLOOR(dm_time / 10) * 10 as time_bucket,
+                        SUM(sentiment_score * COALESCE(sentiment_confidence, 0.5)) /
+                            SUM(COALESCE(sentiment_confidence, 0.5)) as weighted_score,
                         AVG(sentiment_score) as avg_score,
                         COUNT(*) as count
                     FROM video_danmaku
@@ -357,49 +366,105 @@ class VideoStorageService:
                 timeline = [
                     {
                         'time': int(row['time_bucket']),
-                        'score': round(float(row['avg_score']), 4),
+                        'score': round(float(row['weighted_score'] or row['avg_score']), 4),
                         'count': row['count']
                     }
                     for row in timeline_rows
                 ]
                 logger.info(f"[{task_id}] 生成时间轴数据点: {len(timeline)} 个")
 
-                # 2. 计算切面情感得分（基于评论）
+                # 2. 计算切面情感得分（基于评论，优先使用 aspect_details_json）
                 logger.debug(f"[{task_id}] 查询评论数据生成切面分析")
-                sql_aspects = """
-                    SELECT
-                        aspect,
-                        AVG(sentiment_score) as avg_score,
-                        COUNT(*) as count
+                # 先从 aspect_details_json 中聚合（新字段）
+                sql_aspect_details = """
+                    SELECT aspect_details_json, sentiment_confidence
                     FROM video_comment
-                    WHERE task_id = %s AND aspect IS NOT NULL
-                    GROUP BY aspect
+                    WHERE task_id = %s AND aspect_details_json IS NOT NULL
                 """
-                cursor.execute(sql_aspects, (task_id,))
-                aspect_rows = cursor.fetchall()
+                cursor.execute(sql_aspect_details, (task_id,))
+                aspect_detail_rows = cursor.fetchall()
 
-                aspects = {
-                    row['aspect']: {
-                        'score': round(float(row['avg_score']), 4),
-                        'count': row['count']
+                # 聚合多 aspect 明细
+                aspect_agg: Dict = {}
+                for row in aspect_detail_rows:
+                    try:
+                        details = json.loads(row['aspect_details_json'])
+                        conf = float(row.get('sentiment_confidence') or 0.5)
+                        for d in details:
+                            asp = d.get('aspect')
+                            score = d.get('score', 0.0)
+                            label = d.get('label', 'NEUTRAL')
+                            if asp not in aspect_agg:
+                                aspect_agg[asp] = {'score_sum': 0.0, 'conf_sum': 0.0,
+                                                   'count': 0, 'positive': 0,
+                                                   'neutral': 0, 'negative': 0}
+                            weight = conf
+                            aspect_agg[asp]['score_sum'] += score * weight
+                            aspect_agg[asp]['conf_sum'] += weight
+                            aspect_agg[asp]['count'] += 1
+                            aspect_agg[asp][label.lower()] = aspect_agg[asp].get(label.lower(), 0) + 1
+                    except Exception:
+                        pass
+
+                if aspect_agg:
+                    aspects = {
+                        asp: {
+                            'score': round(v['score_sum'] / v['conf_sum'], 4) if v['conf_sum'] > 0 else 0.0,
+                            'count': v['count'],
+                            'positive': v.get('positive', 0),
+                            'neutral': v.get('neutral', 0),
+                            'negative': v.get('negative', 0),
+                        }
+                        for asp, v in aspect_agg.items()
                     }
-                    for row in aspect_rows
-                }
+                else:
+                    # 回退到旧 aspect 字段聚合
+                    sql_aspects = """
+                        SELECT
+                            aspect,
+                            AVG(sentiment_score) as avg_score,
+                            COUNT(*) as count
+                        FROM video_comment
+                        WHERE task_id = %s AND aspect IS NOT NULL
+                        GROUP BY aspect
+                    """
+                    cursor.execute(sql_aspects, (task_id,))
+                    aspect_rows = cursor.fetchall()
+                    aspects = {
+                        row['aspect']: {
+                            'score': round(float(row['avg_score']), 4),
+                            'count': row['count']
+                        }
+                        for row in aspect_rows
+                    }
                 logger.info(f"[{task_id}] 生成切面分析: {len(aspects)} 个切面 - {list(aspects.keys())}")
 
                 # 3. 保存到sentiment_timeline表
                 timeline_json = json.dumps(timeline, ensure_ascii=False)
                 aspect_json = json.dumps(aspects, ensure_ascii=False)
+                aggregation_meta = {
+                    "version": "timeline-v2",
+                    "weight": "sentiment_confidence",
+                    "window_seconds": 10,
+                }
+                aggregation_meta_json = json.dumps(aggregation_meta, ensure_ascii=False)
 
                 logger.debug(f"[{task_id}] 保存时间轴和切面数据到数据库")
                 sql_insert = """
-                    INSERT INTO sentiment_timeline (task_id, bvid, timeline_json, aspect_sentiment_json)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO sentiment_timeline
+                        (task_id, bvid, timeline_json, aspect_sentiment_json,
+                         timeline_version, aggregation_meta_json)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         timeline_json = VALUES(timeline_json),
-                        aspect_sentiment_json = VALUES(aspect_sentiment_json)
+                        aspect_sentiment_json = VALUES(aspect_sentiment_json),
+                        timeline_version = VALUES(timeline_version),
+                        aggregation_meta_json = VALUES(aggregation_meta_json)
                 """
-                cursor.execute(sql_insert, (task_id, bvid, timeline_json, aspect_json))
+                cursor.execute(sql_insert, (
+                    task_id, bvid, timeline_json, aspect_json,
+                    'timeline-v2', aggregation_meta_json
+                ))
                 conn.commit()
 
                 logger.info(f"[{task_id}] 情绪时间轴和切面分析生成完成")

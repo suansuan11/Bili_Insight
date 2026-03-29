@@ -25,7 +25,7 @@ python:
     url: ${PYTHON_SERVICE_URL:http://localhost:8001}
     api-key: ${PYTHON_API_KEY:bili_insight_dev_api_key_2026}
     working-directory: ${PYTHON_SERVICE_DIR:python_service}
-    start-command: ${PYTHON_START_CMD:bash start_service.sh}
+    start-command: ${PYTHON_START_CMD:.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level info}
     health-check-timeout: ${PYTHON_HEALTH_TIMEOUT:30}
     task-timeout: ${PYTHON_TASK_TIMEOUT:1800}
 

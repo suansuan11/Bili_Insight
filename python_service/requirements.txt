@@ -16,3 +16,13 @@ pydantic-settings
 lxml
 curl_cffi
 DBUtils
+# Transformer 情感分析
+transformers
+torch
+sentencepiece
+accelerate
+pyyaml
+scikit-learn
+pandas
+tqdm
+onnxruntime

@@ -1,10 +1,17 @@
 """配置管理模块"""
-from pydantic_settings import BaseSettings
+from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
     """应用配置类"""
+
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).resolve().parents[1] / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # 数据库配置
     db_host: str = "localhost"
@@ -27,10 +34,6 @@ class Settings(BaseSettings):
 
     # API安全配置
     api_key: Optional[str] = None
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
 
 
 # 创建全局配置实例
