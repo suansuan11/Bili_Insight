@@ -75,7 +75,7 @@ class DomainRuleEngine:
         """检查文本中是否有否定词紧跟正向词（粗粒度检测）"""
         negations = self._lexicon.get("negation", [])
         for neg in negations:
-            if neg in text:
+            if isinstance(neg, str) and neg in text:
                 return True
         return False
 
@@ -91,13 +91,13 @@ class DomainRuleEngine:
         negative_words = self._lexicon.get("negative", [])
         positive_words = self._lexicon.get("positive", [])
 
-        if any(w in text for w in sarcasm_words):
+        if any(isinstance(w, str) and w in text for w in sarcasm_words):
             tags.append("sarcasm")
 
-        if current_label == "NEGATIVE" and any(w in text for w in negative_words):
+        if current_label == "NEGATIVE" and any(isinstance(w, str) and w in text for w in negative_words):
             tags.append("complaint")
 
-        if current_label == "POSITIVE" and any(w in text for w in positive_words):
+        if current_label == "POSITIVE" and any(isinstance(w, str) and w in text for w in positive_words):
             tags.append("praise")
 
         if "哈哈" in text or "233" in text or "笑" in text:
@@ -139,8 +139,8 @@ class DomainRuleEngine:
             positive_words = self._lexicon.get("positive", [])
             negative_words = self._lexicon.get("negative", [])
 
-            has_positive = any(w in text for w in positive_words)
-            has_negative = any(w in text for w in negative_words)
+            has_positive = any(isinstance(w, str) and w in text for w in positive_words)
+            has_negative = any(isinstance(w, str) and w in text for w in negative_words)
             has_negation = self._check_negation(text)
 
             # 强负面词命中 -> 倾向 NEGATIVE

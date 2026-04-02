@@ -184,7 +184,8 @@ public class PythonApiClient {
     public String fetchPopularVideos(int pages) {
         String url = pythonServiceUrl + "/api/popular/fetch?pages=" + pages;
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(url, null, String.class);
+            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
             return response.getBody();
         } catch (Exception e) {
             logger.error("Error fetching popular videos: {}", e.getMessage(), e);
@@ -199,7 +200,8 @@ public class PythonApiClient {
     public String getPopularFetchStatus() {
         String url = pythonServiceUrl + "/api/popular/fetch/status";
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
             return response.getBody();
         } catch (Exception e) {
             logger.error("Error getting popular fetch status: {}", e.getMessage(), e);
@@ -214,7 +216,8 @@ public class PythonApiClient {
     public String getLoginQrCode() {
         String url = pythonServiceUrl + "/api/login/qrcode";
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
             return response.getBody();
         } catch (Exception e) {
             logger.error("Error getting login QR code from Python service: {}", e.getMessage(), e);
@@ -230,7 +233,8 @@ public class PythonApiClient {
     public String pollLoginStatus(String key) {
         String url = pythonServiceUrl + "/api/login/status/" + key;
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
             return response.getBody();
         } catch (Exception e) {
             logger.error("Error polling login status from Python service: {}", e.getMessage(), e);

@@ -143,7 +143,7 @@ def export_csv(rows, output_path):
 def main():
     parser = argparse.ArgumentParser(description='构建情感标注候选集')
     parser.add_argument('--task-id', type=str, default=None, help='限定任务ID')
-    parser.add_argument('--limit', type=int, default=None, help='同时设置评论与弹幕总抽样上限')
+    parser.add_argument('--limit', type=int, default=None, help='总抽样上限（评论:弹幕按7:3分配）')
     parser.add_argument('--comment-limit', type=int, default=300, help='评论抽样数量')
     parser.add_argument('--danmaku-limit', type=int, default=200, help='弹幕抽样数量')
     parser.add_argument('--output', type=str,
@@ -152,8 +152,8 @@ def main():
     args = parser.parse_args()
 
     if args.limit is not None:
-        args.comment_limit = args.limit
-        args.danmaku_limit = args.limit
+        args.comment_limit = int(args.limit * 0.7)
+        args.danmaku_limit = args.limit - args.comment_limit
 
     conn = pymysql.connect(**get_db_config(), cursorclass=DictCursor)
     try:

@@ -67,10 +67,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Odometer, TrendCharts, DataAnalysis, Monitor, Setting, User, Fold, Expand, SwitchButton } from '@element-plus/icons-vue'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
 
 // Ensure dark mode state is initialized in the layout
 useDarkMode()
@@ -102,6 +104,40 @@ const handleLogout = () => {
   localStorage.removeItem('user')
   router.push('/login')
 }
+
+/**
+ * 检测 B站 SESSDATA 是否过期，过期则提示用户重新扫码
+ */
+const checkBiliSessdataStatus = async () => {
+  try {
+    const res: any = await request.get('/insight/auth/me')
+    if (!res.biliLinked) return // 未绑定过，不需要提示
+
+    // 已绑定，检测是否过期
+    const checkRes: any = await request.get('/insight/login/status/check')
+    if (checkRes.has_credential && (checkRes.expired || checkRes.error)) {
+      ElMessageBox.confirm(
+        'B站账号凭证已过期，评论和弹幕数据获取将受限。是否前往设置页重新扫码绑定？',
+        'B站凭证过期',
+        {
+          confirmButtonText: '前往绑定',
+          cancelButtonText: '稍后再说',
+          type: 'warning',
+        }
+      ).then(() => {
+        router.push('/settings')
+      }).catch(() => {
+        // 用户选择稍后
+      })
+    }
+  } catch {
+    // 忽略检测失败
+  }
+}
+
+onMounted(() => {
+  checkBiliSessdataStatus()
+})
 </script>
 
 <style scoped>

@@ -37,11 +37,13 @@ class ModelRegistry:
     """
 
     # 评论模型：较长文本，max_length 256
+    # 注意: lxyuan/distilbert-base-multilingual-cased-sentiments-student
+    #   id2label = {0: positive, 1: neutral, 2: negative}
     COMMENT_MODEL = ModelConfig(
         model_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
         version="comment-multilingual-distilbert-v1.0.0",
         max_length=256,
-        label_mapping={0: "NEGATIVE", 1: "NEUTRAL", 2: "POSITIVE"},
+        label_mapping={0: "POSITIVE", 1: "NEUTRAL", 2: "NEGATIVE"},
         hf_hub_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student"
     )
 
@@ -50,7 +52,7 @@ class ModelRegistry:
         model_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
         version="danmaku-multilingual-distilbert-v1.0.0",
         max_length=64,
-        label_mapping={0: "NEGATIVE", 1: "NEUTRAL", 2: "POSITIVE"},
+        label_mapping={0: "POSITIVE", 1: "NEUTRAL", 2: "NEGATIVE"},
         hf_hub_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student"
     )
 

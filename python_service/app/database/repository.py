@@ -228,6 +228,97 @@ class DatabaseRepository:
             finally:
                 cursor.close()
 
+    def replace_popular_videos(self, videos: List[Dict]) -> int:
+        """
+        原子替换热门视频表内容。
+
+        约定：
+        - 调用方需保证 videos 已经完成去重
+        - 本方法会先清空表，再批量插入传入的视频列表
+        """
+        if not videos:
+            raise ValueError("热门视频列表为空，拒绝清空并写入空数据")
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("DELETE FROM popular_videos")
+
+                sql = """
+                INSERT INTO popular_videos
+                (bvid, aid, title, description, author, publish_date, duration,
+                 view_count, like_count, coin_count, favorite_count, share_count,
+                 danmaku_count, comment_count, cover_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+
+                values = [self._build_popular_video_params(video_info) for video_info in videos]
+                cursor.executemany(sql, values)
+                conn.commit()
+                return len(values)
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                cursor.close()
+
+    def _build_popular_video_params(self, video_info: Dict):
+        """
+        归一化热门视频字段，返回可直接用于 INSERT 的参数元组。
+        """
+        # 兼容两种数据格式：B站API原始格式 和 爬虫脚本格式
+        if 'owner' in video_info:
+            # B站API原始格式
+            author = video_info.get('owner', {}).get('name')
+            view_count = video_info.get('stat', {}).get('view')
+            like_count = video_info.get('stat', {}).get('like')
+            coin_count = video_info.get('stat', {}).get('coin')
+            favorite_count = video_info.get('stat', {}).get('favorite')
+            share_count = video_info.get('stat', {}).get('share')
+            danmaku_count = video_info.get('stat', {}).get('danmaku')
+            comment_count = video_info.get('comment_count', 0)
+            if not comment_count:
+                comment_count = video_info.get('stat', {}).get('reply', 0)
+
+            cover_url = video_info.get('pic')
+            publish_date = video_info.get('pubdate')
+        else:
+            # 爬虫脚本格式 (已处理好的字段)
+            author = video_info.get('author')
+            view_count = video_info.get('view_count')
+            like_count = video_info.get('like_count')
+            coin_count = video_info.get('coin_count')
+            favorite_count = video_info.get('favorite_count')
+            share_count = video_info.get('share_count')
+            danmaku_count = video_info.get('danmaku_count')
+            comment_count = video_info.get('comment_count')
+            cover_url = video_info.get('cover_url')
+            publish_date = video_info.get('publish_date')
+
+        import datetime
+        if isinstance(publish_date, int):
+            publish_date = datetime.datetime.fromtimestamp(publish_date).strftime('%Y-%m-%d %H:%M:%S')
+        elif not publish_date:
+            publish_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        return (
+            video_info.get('bvid'),
+            video_info.get('aid', 0),
+            video_info.get('title'),
+            video_info.get('description', ''),
+            author,
+            publish_date,
+            video_info.get('duration', 0),
+            view_count or 0,
+            like_count or 0,
+            coin_count or 0,
+            favorite_count or 0,
+            share_count or 0,
+            danmaku_count or 0,
+            comment_count or 0,
+            cover_url
+        )
+
     def insert_or_update_popular_video(self, video_info: Dict):
         """
         插入或更新热门视频信息
@@ -257,59 +348,7 @@ class DatabaseRepository:
                     scraped_at = CURRENT_TIMESTAMP
                 """
 
-                # 兼容两种数据格式：B站API原始格式 和 爬虫脚本格式
-                if 'owner' in video_info:
-                    # B站API原始格式
-                    author = video_info.get('owner', {}).get('name')
-                    view_count = video_info.get('stat', {}).get('view')
-                    like_count = video_info.get('stat', {}).get('like')
-                    coin_count = video_info.get('stat', {}).get('coin')
-                    favorite_count = video_info.get('stat', {}).get('favorite')
-                    share_count = video_info.get('stat', {}).get('share')
-                    danmaku_count = video_info.get('stat', {}).get('danmaku')
-                    comment_count = video_info.get('comment_count', 0) # Already extracted in service
-                    if not comment_count: # Fallback if direct not available (raw api response)
-                         comment_count = video_info.get('stat', {}).get('reply', 0)
-
-                    cover_url = video_info.get('pic')
-                    publish_date = video_info.get('pubdate')
-                else:
-                    # 爬虫脚本格式 (已处理好的字段)
-                    author = video_info.get('author')
-                    view_count = video_info.get('view_count')
-                    like_count = video_info.get('like_count')
-                    coin_count = video_info.get('coin_count')
-                    favorite_count = video_info.get('favorite_count')
-                    share_count = video_info.get('share_count')
-                    danmaku_count = video_info.get('danmaku_count')
-                    comment_count = video_info.get('comment_count')
-                    cover_url = video_info.get('cover_url')
-                    publish_date = video_info.get('publish_date')
-
-                # Ensure publish_date is formatted properly for MySQL if it's a timestamp
-                import datetime
-                if isinstance(publish_date, int):
-                    publish_date = datetime.datetime.fromtimestamp(publish_date).strftime('%Y-%m-%d %H:%M:%S')
-                elif not publish_date:
-                    publish_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-                cursor.execute(sql, (
-                    video_info.get('bvid'),
-                    video_info.get('aid', 0),
-                    video_info.get('title'),
-                    video_info.get('description', ''),
-                    author,
-                    publish_date,
-                    video_info.get('duration', 0),
-                    view_count or 0,
-                    like_count or 0,
-                    coin_count or 0,
-                    favorite_count or 0,
-                    share_count or 0,
-                    danmaku_count or 0,
-                    comment_count or 0,
-                    cover_url
-                ))
+                cursor.execute(sql, self._build_popular_video_params(video_info))
                 conn.commit()
             except Exception as e:
                 conn.rollback()

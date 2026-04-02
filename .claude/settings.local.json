@@ -34,7 +34,16 @@
       "Bash(kill:*)",
       "Bash(uvicorn app.main:app --host 0.0.0.0 --port 8001)",
       "Bash(chmod:*)",
-      "Bash(mysql -uroot -pLiuyi325 bili_insight_db -e \"SELECT bvid, title, LEFT\\(description, 60\\) as description FROM popular_videos WHERE description IS NOT NULL AND description != '''' ORDER BY scraped_at DESC LIMIT 5;\")"
+      "Bash(mysql -uroot -pLiuyi325 bili_insight_db -e \"SELECT bvid, title, LEFT\\(description, 60\\) as description FROM popular_videos WHERE description IS NOT NULL AND description != '''' ORDER BY scraped_at DESC LIMIT 5;\")",
+      "Bash(.venv/bin/python -c \"import transformers; print\\(''transformers'', transformers.__version__\\)\")",
+      "Bash(.venv/bin/python scripts/migrate/recompute_sentiment_for_task.py --task-id f09ed58b-b526-487a-baf0-3682eae14cbe --dry-run 2>&1)",
+      "Bash(.venv/bin/python -c \"\nimport sys, os\nsys.path.insert\\(0, '.'\\)\nfrom app.services.sentiment_analyzer import SentimentAnalyzer\nfrom app.services.aspect_analyzer import AspectAnalyzer\nsa = SentimentAnalyzer\\(\\)\naa = AspectAnalyzer\\(sa\\)\n\ntext = '@晚晚今天早点睡'\ntry:\n    result = sa.analyze\\(text, 'comment'\\)\n    print\\('sentiment OK:', result['label']\\)\n    aspects = aa.analyze\\(text, 'comment'\\)\n    print\\('aspects OK:', aspects\\)\nexcept Exception as e:\n    import traceback\n    traceback.print_exc\\(\\)\n\" 2>&1)",
+      "Bash(.venv/bin/python -c \"\nimport yaml\nwith open\\('app/resources/domain_lexicon.yml'\\) as f:\n    d = yaml.safe_load\\(f\\)\nfor item in d['negation']:\n    print\\(type\\(item\\).__name__, ':', repr\\(item\\)\\)\n\" 2>&1)",
+      "Bash(.venv/bin/python -c \"\nimport sys, os\nsys.path.insert\\(0, '.'\\)\nfrom app.services.sentiment_analyzer import SentimentAnalyzer\nsa = SentimentAnalyzer\\(\\)\nresult = sa.analyze\\('@晚晚今天早点睡', 'comment'\\)\nprint\\('OK:', result['label'], result['score'], result['confidence']\\)\n\" 2>&1)",
+      "Bash(.venv/bin/python scripts/migrate/recompute_sentiment_for_task.py --task-id f09ed58b-b526-487a-baf0-3682eae14cbe 2>&1)",
+      "Bash(.venv/bin/python scripts/migrate/backfill_transformer_sentiment.py --only-completed 2>&1)",
+      "Bash(.venv/bin/python scripts/eval/build_annotation_dataset.py --comment-limit 700 --danmaku-limit 300 --output scripts/eval/annotation_candidates.csv 2>&1)",
+      "Bash(.venv/bin/python:*)"
     ]
   }
 }

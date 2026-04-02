@@ -1,5 +1,6 @@
 """API认证中间件"""
-from fastapi import Request, HTTPException
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from ..config import settings
 
@@ -17,6 +18,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         api_key = request.headers.get("X-API-Key")
         if api_key != settings.api_key:
-            raise HTTPException(status_code=403, detail="Invalid API key")
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Invalid API key"}
+            )
 
         return await call_next(request)

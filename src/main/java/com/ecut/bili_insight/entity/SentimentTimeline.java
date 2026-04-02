@@ -31,4 +31,14 @@ public class SentimentTimeline {
      * 切面情感分析JSON数据
      */
     private String aspectSentimentJson;
+
+    /**
+     * 时间轴版本
+     */
+    private String timelineVersion;
+
+    /**
+     * 聚合元数据JSON: window, weights, filters
+     */
+    private String aggregationMetaJson;
 }

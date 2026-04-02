@@ -12,6 +12,10 @@ import asyncio
 router = APIRouter()
 db_repo = DatabaseRepository()
 
+TARGET_POPULAR_VIDEO_COUNT = 100
+MIN_FETCH_PAGES = 5
+MAX_FETCH_PAGES = 12
+
 class FetchRequest(BaseModel):
     pages: int = 1
     sessdata: Optional[str] = None
@@ -24,80 +28,81 @@ _last_fetch_result = {"status": "never_run", "count": 0}
 async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
     """
     后台任务：爬取热门视频并存入数据库（异步版本）
+    仅当抓取到至少 100 个唯一热门视频时，才会清空旧数据并整表重建。
 
     Args:
-        pages: 爬取页数
+        pages: 初始爬取页数（每页约20个，至少5页；若唯一视频不足100会自动补页）
         sessdata: 用户B站凭证
     """
     global _fetch_task_running, _last_fetch_result
 
     try:
         _fetch_task_running = True
-        logger.info(f"开始爬取热门视频（{pages}页）...")
-
-        # 清空所有旧视频
-        cleared_count = db_repo.clear_all_popular_videos()
-        logger.info(f"已清空 {cleared_count} 个旧视频")
+        # 至少从5页开始抓取，后续如果唯一视频不足100会继续补页。
+        requested_pages = max(pages, MIN_FETCH_PAGES)
+        logger.info(
+            f"开始爬取热门视频，目标唯一视频数={TARGET_POPULAR_VIDEO_COUNT}，初始页数={requested_pages}"
+        )
 
         credential = None
         if sessdata:
             credential = make_credential(sessdata)
 
         bili_service = BilibiliService(credential=credential)
-        total_videos = []
+        ordered_unique_videos: Dict[str, Dict] = {}
+        current_page = 1
 
-        # 并发获取多页数据
-        tasks = [bili_service.get_hot_videos(page=p, page_size=20) for p in range(1, pages + 1)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        while current_page <= requested_pages and len(ordered_unique_videos) < TARGET_POPULAR_VIDEO_COUNT:
+            batch_end = min(requested_pages, current_page + 4)
+            logger.info(f"抓取热门视频页范围: {current_page}-{batch_end}")
 
-        # 汇总结果
-        for result in results:
-            if isinstance(result, list):
-                total_videos.extend(result)
-            elif isinstance(result, Exception):
-                logger.error(f"获取某页数据失败: {result}")
+            tasks = [
+                bili_service.get_hot_videos(page=page_no, page_size=20)
+                for page_no in range(current_page, batch_end + 1)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        logger.info(f"收集到 {len(total_videos)} 个热门视频")
+            for page_no, result in zip(range(current_page, batch_end + 1), results):
+                if isinstance(result, Exception):
+                    logger.error(f"获取第{page_no}页热门视频失败: {result}")
+                    continue
 
-        # 检查重复
-        unique_bvids = set()
-        duplicate_count = 0
-        for video in total_videos:
-            bvid = video.get('bvid')
-            if bvid in unique_bvids:
-                duplicate_count += 1
-            else:
-                unique_bvids.add(bvid)
-        
-        if duplicate_count > 0:
-            logger.info(f"发现 {duplicate_count} 个重复视频，唯一视频数: {len(unique_bvids)}")
-        else:
-            logger.info(f"无重复视频，唯一视频数: {len(unique_bvids)}")
+                for video in result:
+                    bvid = video.get("bvid")
+                    if not bvid or bvid in ordered_unique_videos:
+                        continue
+                    ordered_unique_videos[bvid] = video
 
-        # 保存到数据库
-        success_count = 0
-        duplicate_update_count = 0
-        first_error = None
-        for video in total_videos:
-            try:
-                result = db_repo.insert_or_update_popular_video(video)
-                success_count += 1
-            except Exception as e:
-                if not first_error:
-                    first_error = str(e)
-                logger.error(f"保存视频 {video.get('bvid')} 失败: {e}")
+            current_page = batch_end + 1
+            if len(ordered_unique_videos) < TARGET_POPULAR_VIDEO_COUNT and requested_pages < MAX_FETCH_PAGES:
+                requested_pages = min(MAX_FETCH_PAGES, requested_pages + 1)
 
-        logger.info(f"数据库操作完成 - 成功: {success_count}, 总数: {len(total_videos)}")
-        
+        unique_videos = list(ordered_unique_videos.values())
+        logger.info(
+            f"热门视频抓取结束，唯一视频数={len(unique_videos)}，目标数={TARGET_POPULAR_VIDEO_COUNT}"
+        )
+
+        if len(unique_videos) < TARGET_POPULAR_VIDEO_COUNT:
+            raise RuntimeError(
+                f"热门视频抓取数量不足：仅获取到 {len(unique_videos)} 个唯一视频，无法保证表中存在 100 条数据"
+            )
+
+        videos_to_save = unique_videos[:TARGET_POPULAR_VIDEO_COUNT]
+        inserted_count = db_repo.replace_popular_videos(videos_to_save)
+
+        if inserted_count != TARGET_POPULAR_VIDEO_COUNT:
+            raise RuntimeError(
+                f"热门视频落库数量异常：期望 {TARGET_POPULAR_VIDEO_COUNT} 条，实际写入 {inserted_count} 条"
+            )
+
         _last_fetch_result = {
-            "status": "success" if success_count == len(total_videos) else "partial_success",
-            "count": success_count,
-            "total": len(total_videos),
-            "unique_count": len(unique_bvids),
-            "duplicates": duplicate_count,
-            "first_error": first_error
+            "status": "success",
+            "count": inserted_count,
+            "target": TARGET_POPULAR_VIDEO_COUNT,
+            "fetched_unique": len(unique_videos),
+            "pages_used": current_page - 1
         }
-        logger.info(f"热门视频爬取完成，成功保存 {success_count}/{len(total_videos)} 个视频（唯一: {len(unique_bvids)}）")
+        logger.info(f"热门视频爬取完成，已清空并重建 {inserted_count} 条热门视频数据")
 
     except Exception as e:
         _last_fetch_result = {

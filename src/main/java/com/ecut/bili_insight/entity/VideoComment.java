@@ -40,7 +40,17 @@ public class VideoComment {
     private String content;
 
     /**
-     * 情感分数 (0-1)
+     * 标准化后的文本
+     */
+    private String normalizedContent;
+
+    /**
+     * 文本类型: comment / danmaku
+     */
+    private String textType;
+
+    /**
+     * 情感分数 [-1.0000, 1.0000]
      */
     private BigDecimal sentimentScore;
 
@@ -48,6 +58,36 @@ public class VideoComment {
      * 情感标签: POSITIVE/NEUTRAL/NEGATIVE
      */
     private String sentimentLabel;
+
+    /**
+     * 情感置信度 [0.0000, 1.0000]
+     */
+    private BigDecimal sentimentConfidence;
+
+    /**
+     * 情感强度: WEAK/MEDIUM/STRONG
+     */
+    private String sentimentIntensity;
+
+    /**
+     * 分析来源: transformer_comment_v1 / fallback_rule_v1
+     */
+    private String sentimentSource;
+
+    /**
+     * 模型版本
+     */
+    private String sentimentVersion;
+
+    /**
+     * 情绪标签JSON: ["complaint","sarcasm"]
+     */
+    private String emotionTagsJson;
+
+    /**
+     * 切面情感详情JSON
+     */
+    private String aspectDetailsJson;
 
     /**
      * 点赞数

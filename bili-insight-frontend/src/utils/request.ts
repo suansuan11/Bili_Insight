@@ -1,5 +1,6 @@
 import axios from 'axios'
 import router from '@/router'
+import { ElMessage } from 'element-plus'
 
 const service = axios.create({
     baseURL: '/',
@@ -26,10 +27,11 @@ service.interceptors.response.use(
     },
     error => {
         if (error.response && error.response.status === 401) {
-            // 只有在非登录/注册页面才自动跳转，避免登录失败时死循环
             const path = window.location.pathname
             if (path !== '/login' && path !== '/register') {
                 localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                ElMessage.warning('登录已过期，请重新登录')
                 router.push('/login')
             }
         }

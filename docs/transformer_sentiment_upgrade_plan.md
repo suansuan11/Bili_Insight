@@ -58,10 +58,12 @@
 | 执行数据库迁移 SQL | ✅ 已执行 | 已在本地 `bili_insight_db` 执行 `sql/migrations/2026-03-transformer-sentiment-upgrade.sql` |
 | 安装新依赖 | ✅ 已执行 | 已在 `python_service/.venv` 完整安装 `requirements.txt` |
 | 启动本地 MySQL | ✅ 已确认 | 已确认本地 MySQL 可连，schema 迁移成功 |
-| 验证单任务分析 | ⏳ 待验证 | 已完成服务级启动验证，仍建议再跑一次真实分析任务确认新字段落库与时间轴回填 |
+| 验证单任务分析 | ✅ 已验证 | 已用 `recompute_sentiment_for_task.py` 重算并确认新字段全部落库，时间轴重建正常 |
 | 验证 Spring Boot 自动拉起 Python | ✅ 已执行 | `mvn spring-boot:run` 已实测可连库并自动拉起 Python 服务 |
-| Java 实体扩展 | ⏳ 待实施 | 扩展 `VideoComment`/`VideoDanmaku` 实体和 Mapper（兼容期不强制） |
-| 建立人工标注集 | ⏳ 待实施 | 目标 1000 条，运行 `build_annotation_dataset.py` 生成候选 |
+| Java 实体扩展 | ✅ 已完成 | 扩展 `VideoComment`/`VideoDanmaku`/`SentimentTimeline` 实体和 Mapper，新增情感置信度、强度、来源、版本、情绪标签、切面详情等字段 |
+| 建立人工标注集 | ✅ 已完成 | 已运行 `build_annotation_dataset.py` 导出 1000 条候选样本（评论 700 + 弹幕 300），位于 `python_service/scripts/eval/annotation_candidates.csv` |
+| 批量回填历史数据 | ✅ 已完成 | 4 个 COMPLETED 任务全部回填，1327 条评论 + 3423 条弹幕，0 失败 |
+| 修复 YAML 词典解析错误 | ✅ 已修复 | `domain_lexicon.yml` 中 `不错（注意:` 被 YAML 解析为 dict，已改为行尾注释；`domain_rules.py` 增加 `isinstance` 类型守卫 |
 
 ---
 

@@ -4,19 +4,34 @@
 
     <insert id="batchInsert" parameterType="java.util.List">
         INSERT INTO video_danmaku (danmaku_id, task_id, bvid, content, dm_time, appear_time,
-                                   sentiment_score, sentiment_label)
+                                   normalized_content, text_type,
+                                   sentiment_score, sentiment_label,
+                                   sentiment_confidence, sentiment_intensity,
+                                   sentiment_source, sentiment_version,
+                                   emotion_tags_json)
         VALUES
         <foreach collection="danmakus" item="danmaku" separator=",">
             (#{danmaku.danmakuId}, #{danmaku.taskId}, #{danmaku.bvid}, #{danmaku.content},
              #{danmaku.dmTime}, #{danmaku.dmTime},
-             #{danmaku.sentimentScore}, #{danmaku.sentimentLabel})
+             #{danmaku.normalizedContent}, #{danmaku.textType},
+             #{danmaku.sentimentScore}, #{danmaku.sentimentLabel},
+             #{danmaku.sentimentConfidence}, #{danmaku.sentimentIntensity},
+             #{danmaku.sentimentSource}, #{danmaku.sentimentVersion},
+             #{danmaku.emotionTagsJson})
         </foreach>
     </insert>
 
     <select id="findByTaskId" resultType="com.ecut.bili_insight.entity.VideoDanmaku">
         SELECT danmaku_id AS danmakuId, task_id AS taskId, bvid, content,
                dm_time AS dmTime, appear_time AS appearTime,
-               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel
+               normalized_content AS normalizedContent,
+               text_type AS textType,
+               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson
         FROM video_danmaku
         WHERE task_id = #{taskId}
         ORDER BY dm_time ASC
@@ -25,7 +40,14 @@
     <select id="findByTaskIdAndSentiment" resultType="com.ecut.bili_insight.entity.VideoDanmaku">
         SELECT danmaku_id AS danmakuId, task_id AS taskId, bvid, content,
                dm_time AS dmTime, appear_time AS appearTime,
-               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel
+               normalized_content AS normalizedContent,
+               text_type AS textType,
+               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson
         FROM video_danmaku
         WHERE task_id = #{taskId} AND sentiment_label = #{sentimentLabel}
         ORDER BY dm_time ASC

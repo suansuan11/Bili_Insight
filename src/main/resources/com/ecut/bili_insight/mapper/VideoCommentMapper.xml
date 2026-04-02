@@ -4,25 +4,51 @@
 
     <insert id="batchInsert" parameterType="java.util.List">
         INSERT INTO video_comment (task_id, bvid, comment_id, username, gender, content,
+                                   normalized_content, text_type,
                                    like_count, reply_count, publish_time,
-                                   sentiment_score, sentiment_label, aspect)
+                                   sentiment_score, sentiment_label,
+                                   sentiment_confidence, sentiment_intensity,
+                                   sentiment_source, sentiment_version,
+                                   emotion_tags_json, aspect, aspect_details_json)
         VALUES
         <foreach collection="comments" item="comment" separator=",">
             (#{comment.taskId}, #{comment.bvid}, #{comment.commentId}, #{comment.username},
              #{comment.gender}, #{comment.content},
+             #{comment.normalizedContent}, #{comment.textType},
              #{comment.likeCount}, #{comment.replyCount}, #{comment.publishTime},
-             #{comment.sentimentScore}, #{comment.sentimentLabel}, #{comment.aspect})
+             #{comment.sentimentScore}, #{comment.sentimentLabel},
+             #{comment.sentimentConfidence}, #{comment.sentimentIntensity},
+             #{comment.sentimentSource}, #{comment.sentimentVersion},
+             #{comment.emotionTagsJson}, #{comment.aspect}, #{comment.aspectDetailsJson})
         </foreach>
         ON DUPLICATE KEY UPDATE
             like_count = VALUES(like_count),
-            reply_count = VALUES(reply_count)
+            reply_count = VALUES(reply_count),
+            normalized_content = VALUES(normalized_content),
+            sentiment_score = VALUES(sentiment_score),
+            sentiment_label = VALUES(sentiment_label),
+            sentiment_confidence = VALUES(sentiment_confidence),
+            sentiment_intensity = VALUES(sentiment_intensity),
+            sentiment_source = VALUES(sentiment_source),
+            sentiment_version = VALUES(sentiment_version),
+            emotion_tags_json = VALUES(emotion_tags_json),
+            aspect = VALUES(aspect),
+            aspect_details_json = VALUES(aspect_details_json)
     </insert>
 
     <select id="findByTaskId" resultType="com.ecut.bili_insight.entity.VideoComment">
         SELECT comment_id AS commentId, task_id AS taskId, bvid, username,
-               gender, content, like_count AS likeCount, reply_count AS replyCount,
+               gender, content, normalized_content AS normalizedContent,
+               text_type AS textType,
+               like_count AS likeCount, reply_count AS replyCount,
                publish_time AS publishTime, sentiment_score AS sentimentScore,
-               sentiment_label AS sentimentLabel, aspect
+               sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson,
+               aspect, aspect_details_json AS aspectDetailsJson
         FROM video_comment
         WHERE task_id = #{taskId}
         ORDER BY like_count DESC
@@ -30,9 +56,17 @@
 
     <select id="findByTaskIdAndSentiment" resultType="com.ecut.bili_insight.entity.VideoComment">
         SELECT comment_id AS commentId, task_id AS taskId, bvid, username,
-               gender, content, like_count AS likeCount, reply_count AS replyCount,
+               gender, content, normalized_content AS normalizedContent,
+               text_type AS textType,
+               like_count AS likeCount, reply_count AS replyCount,
                publish_time AS publishTime, sentiment_score AS sentimentScore,
-               sentiment_label AS sentimentLabel, aspect
+               sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson,
+               aspect, aspect_details_json AS aspectDetailsJson
         FROM video_comment
         WHERE task_id = #{taskId} AND sentiment_label = #{sentimentLabel}
         ORDER BY like_count DESC
@@ -40,11 +74,23 @@
 
     <select id="findByTaskIdAndAspect" resultType="com.ecut.bili_insight.entity.VideoComment">
         SELECT comment_id AS commentId, task_id AS taskId, bvid, username,
-               gender, content, like_count AS likeCount, reply_count AS replyCount,
+               gender, content, normalized_content AS normalizedContent,
+               text_type AS textType,
+               like_count AS likeCount, reply_count AS replyCount,
                publish_time AS publishTime, sentiment_score AS sentimentScore,
-               sentiment_label AS sentimentLabel, aspect
+               sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson,
+               aspect, aspect_details_json AS aspectDetailsJson
         FROM video_comment
-        WHERE task_id = #{taskId} AND aspect = #{aspect}
+        WHERE task_id = #{taskId}
+          AND (
+            aspect = #{aspect}
+            OR JSON_SEARCH(aspect_details_json, 'one', #{aspect}, NULL, '$[*].aspect') IS NOT NULL
+          )
         ORDER BY like_count DESC
     </select>
 
