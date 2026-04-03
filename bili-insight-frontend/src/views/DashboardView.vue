@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import {
   VideoPlay, ChatLineSquare, Star, DocumentChecked,
   Loading, Plus, Compass, Download, DataAnalysis,
@@ -174,6 +174,9 @@ import {
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import request from '@/utils/request'
+import { useDarkMode } from '@/composables/useDarkMode'
+
+const { isDark } = useDarkMode()
 
 const username = computed(() => {
   try {
@@ -235,8 +238,14 @@ const fetchStats = async () => {
 
     await nextTick()
 
-    if (trendRes.code === 0) renderTrendChart(trendRes.data)
-    if (sentimentRes.code === 0) renderSentimentChart(sentimentRes.data)
+    if (trendRes.code === 0) {
+      lastData.value.trend = trendRes.data
+      renderTrendChart(trendRes.data)
+    }
+    if (sentimentRes.code === 0) {
+      lastData.value.sentiment = sentimentRes.data
+      renderSentimentChart(sentimentRes.data)
+    }
 
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error)
@@ -247,6 +256,9 @@ const fetchStats = async () => {
 
 const renderTrendChart = (data: { date: string, count: number }[]) => {
   if (!trendChartRef.value) return
+  if (trendChartRef.value.getAttribute('_echarts_instance_')) {
+    echarts.getInstanceByDom(trendChartRef.value)?.dispose()
+  }
   const chart = echarts.init(trendChartRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#334155', textStyle: { color: '#f1f5f9' } },
@@ -255,15 +267,15 @@ const renderTrendChart = (data: { date: string, count: number }[]) => {
       type: 'category',
       boundaryGap: false,
       data: data.map(i => i.date.split('T')[0] || i.date),
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
-      axisLabel: { color: '#94a3b8', fontSize: 12 }
+      axisLine: { lineStyle: { color: isDark.value ? '#475569' : '#e2e8f0' } },
+      axisLabel: { color: isDark.value ? '#94a3b8' : '#64748b', fontSize: 12 }
     },
     yAxis: {
       type: 'value',
       minInterval: 1,
       axisLine: { show: false },
-      splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
-      axisLabel: { color: '#94a3b8', fontSize: 12 }
+      splitLine: { lineStyle: { type: 'dashed', color: isDark.value ? '#334155' : '#f1f5f9' } },
+      axisLabel: { color: isDark.value ? '#94a3b8' : '#64748b', fontSize: 12 }
     },
     series: [{
       name: '创建任务',
@@ -286,6 +298,9 @@ const renderTrendChart = (data: { date: string, count: number }[]) => {
 
 const renderSentimentChart = (data: DashboardSentimentDistribution | Record<string, number>) => {
   if (!sentimentChartRef.value) return
+  if (sentimentChartRef.value.getAttribute('_echarts_instance_')) {
+    echarts.getInstanceByDom(sentimentChartRef.value)?.dispose()
+  }
   const chart = echarts.init(sentimentChartRef.value)
 
   const hasStructuredData = typeof data === 'object' && data !== null && 'counts' in data
@@ -344,40 +359,32 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
         return item ? `${name} ${item.value}` : name
       }
     },
-    graphic: [
-      {
-        type: 'text',
-        left: 'center',
-        top: '40%',
-        style: {
-          text: '评论情感',
-          textAlign: 'center',
-          fill: '#94a3b8',
-          fontSize: 12,
-          fontWeight: 500
-        }
+    title: {
+      text: String(total || 0),
+      subtext: '评论情感',
+      left: 'center',
+      top: '34%',
+      itemGap: 4,
+      textStyle: {
+        color: isDark.value ? '#f8fafc' : '#0f172a',
+        fontSize: 26,
+        fontWeight: 800
       },
-      {
-        type: 'text',
-        left: 'center',
-        top: '47%',
-        style: {
-          text: String(total || 0),
-          textAlign: 'center',
-          fill: '#0f172a',
-          fontSize: 24,
-          fontWeight: 700
-        }
+      subtextStyle: {
+        color: isDark.value ? '#94a3b8' : '#64748b',
+        fontSize: 13,
+        fontWeight: 500
       }
-    ],
+    },
+    graphic: [],
     series: outerRingData.length > 0
       ? [
           {
             name: '主情感',
             type: 'pie',
-            radius: ['28%', '48%'],
-            center: ['50%', '40%'],
-            itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 3 },
+            radius: ['42%', '58%'],
+            center: ['50%', '44%'],
+            itemStyle: { borderRadius: 0, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 1 },
             label: { show: false },
             emphasis: { scale: true },
             data: pieData
@@ -385,9 +392,9 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
           {
             name: '情感强度',
             type: 'pie',
-            radius: ['56%', '78%'],
-            center: ['50%', '40%'],
-            itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+            radius: ['64%', '82%'],
+            center: ['50%', '44%'],
+            itemStyle: { borderRadius: 0, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 1 },
             label: { show: false },
             emphasis: { scale: true },
             data: outerRingData
@@ -396,15 +403,22 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
       : [{
           name: '情感分布',
           type: 'pie',
-          radius: ['42%', '72%'],
-          center: ['50%', '40%'],
-          itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+          radius: ['52%', '78%'],
+          center: ['50%', '44%'],
+          itemStyle: { borderRadius: 0, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 1 },
           label: { show: false },
-          emphasis: { label: { show: true, fontSize: 15, fontWeight: 'bold', color: '#0f172a' } },
+          emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: isDark.value ? '#f8fafc' : '#0f172a' } },
           data: pieData
         }]
   })
 }
+
+const lastData = ref<{trend?: any, sentiment?: any}>({})
+
+watch(isDark, () => {
+  if (lastData.value.trend) renderTrendChart(lastData.value.trend)
+  if (lastData.value.sentiment) renderSentimentChart(lastData.value.sentiment)
+})
 
 const formatNumber = (num?: number) => {
   if (!num) return '0'

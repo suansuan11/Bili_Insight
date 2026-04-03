@@ -68,8 +68,8 @@
           <div v-else class="qr-section">
             <div v-if="qrCodeUrl" class="qr-wrapper">
               <div class="qr-box">
-                <qrcode-vue :value="qrCodeUrl" :size="192" level="M" />
-                <div v-if="isExpired" class="qr-expired-overlay">
+                <qrcode-vue :value="qrCodeUrl" :size="192" :margin="2" level="M" background="#ffffff" foreground="#000000" />
+                <div v-if="isExpired" class="qr-expired-overlay" style="border-radius: 8px">
                   <span class="qr-expired-text">二维码已过期</span>
                   <el-icon class="qr-refresh-icon" @click="refreshQrCode"><Refresh /></el-icon>
                 </div>

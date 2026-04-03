@@ -177,12 +177,20 @@
         
         <!-- Comments List -->
         <div v-if="viewMode === 'comments'" class="comments-list" @scroll.passive="handleFeedbackScroll">
-          <div v-if="filteredComments.length > 0">
-            <div v-for="comment in visibleComments" :key="comment.commentId" class="comment-item hover:bg-gray-50 transition-colors">
-              <div class="flex justify-between mb-2">
-                 <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-medium text-gray-700">{{ comment.username || comment.author || '用户' }}</span>
-                    <el-tag :type="getSentimentTagType(comment.sentimentLabel)" size="small" effect="plain">
+          <div v-if="filteredComments.length > 0" class="comments-grid">
+            <div v-for="comment in visibleComments" :key="comment.commentId" class="comment-card shadow-sm hover:shadow-md transition-all">
+              <div class="flex mb-3 items-start gap-3">
+                <div class="comment-avatar">
+                   {{ (comment.username || comment.author || '用')[0].toUpperCase() }}
+                </div>
+                <div class="comment-author-info">
+                  <div class="comment-header-row">
+                    <span class="comment-username">{{ comment.username || comment.author || '用户' }}</span>
+                    <span class="comment-likes"><el-icon><Star /></el-icon> {{ comment.likeCount || 0 }}</span>
+                  </div>
+                  <div class="comment-tags">
+                    <el-tag :type="getSentimentTagType(comment.sentimentLabel)" size="small" effect="plain" class="modern-tag sentiment-tag">
+                      <span class="tag-dot"></span>
                       {{ getSentimentLabelText(comment.sentimentLabel, comment.sentimentIntensity) }}
                     </el-tag>
                     <el-tag
@@ -190,6 +198,7 @@
                       size="small"
                       effect="light"
                       type="info"
+                      class="modern-tag conf-tag"
                     >
                       置信度 {{ formatConfidence(comment.sentimentConfidence) }}
                     </el-tag>
@@ -199,6 +208,7 @@
                       :type="getSentimentTagType(detail.label)"
                       size="small"
                       effect="light"
+                      class="modern-tag aspect-tag"
                     >
                       {{ detail.aspect }} {{ getSentimentLabelText(detail.label, deriveIntensity(detail.score)) }}
                     </el-tag>
@@ -208,15 +218,16 @@
                       size="small"
                       effect="light"
                       type="warning"
+                      class="modern-tag emotion-tag"
                     >
                       {{ formatEmotionTag(tag) }}
                     </el-tag>
-                 </div>
-                 <span class="text-xs text-gray-400 shrink-0">点赞: {{ comment.likeCount }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="text-gray-600 leading-relaxed text-sm break-words">{{ comment.content }}</div>
-              <div v-if="getAspectContext(comment)" class="mt-2 text-xs text-gray-400">
-                关联片段: {{ getAspectContext(comment) }}
+              <div class="comment-content-body">{{ comment.content }}</div>
+              <div v-if="getAspectContext(comment)" class="comment-context-quote">
+                <strong>关联片段:</strong> {{ getAspectContext(comment) }}
               </div>
             </div>
             <div class="feedback-sentinel">
@@ -230,16 +241,17 @@
         <!-- Danmaku List -->
         <div v-else class="comments-list" @scroll.passive="handleFeedbackScroll">
            <div v-if="filteredDanmakus.length > 0">
-              <div v-for="dm in visibleDanmakus" :key="dm.danmakuId" class="comment-item hover:bg-gray-50 transition-colors flex justify-between items-center">
+              <div v-for="dm in visibleDanmakus" :key="dm.danmakuId" class="comment-item list-dm flex justify-between items-center">
                  <div class="flex items-center gap-3 flex-1 min-w-0">
-                    <el-tag size="small" type="info" effect="dark" class="font-mono">{{ formatTime(dm.dmTime) }}</el-tag>
-                    <span class="text-gray-600 text-sm truncate" :title="dm.content">{{ dm.content }}</span>
+                    <el-tag size="small" type="info" effect="dark" class="font-mono dm-time-tag">{{ formatTime(dm.dmTime) }}</el-tag>
+                    <span class="dm-content truncate" :title="dm.content">{{ dm.content }}</span>
                  </div>
-                 <div class="flex items-center gap-2 ml-2 shrink-0">
-                   <el-tag :type="getSentimentTagType(dm.sentimentLabel)" size="small" effect="plain">
-                      {{ getSentimentLabelText(dm.sentimentLabel, dm.sentimentIntensity) }}
+                 <div class="flex items-center gap-2 ml-2 shrink-0 dm-tags">
+                   <el-tag :type="getSentimentTagType(dm.sentimentLabel)" size="small" effect="plain" class="modern-tag sentiment-tag px-2">
+                     <span class="tag-dot"></span>
+                     {{ getSentimentLabelText(dm.sentimentLabel, dm.sentimentIntensity) }}
                    </el-tag>
-                   <el-tag v-if="dm.sentimentConfidence !== undefined" size="small" effect="light" type="info">
+                   <el-tag v-if="dm.sentimentConfidence !== undefined" size="small" effect="light" type="info" class="modern-tag conf-tag px-2">
                       {{ formatConfidence(dm.sentimentConfidence) }}
                    </el-tag>
                  </div>
@@ -259,11 +271,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Loading, ChatDotRound, ChatLineRound, CircleCheck, CircleClose, VideoPlay, Clock, TrendCharts, InfoFilled, Filter, PriceTag } from '@element-plus/icons-vue'
+import { Loading, ChatDotRound, ChatLineRound, CircleCheck, CircleClose, VideoPlay, Clock, TrendCharts, InfoFilled, Filter, PriceTag, Star } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getAnalysisResult } from '@/api/analysis'
 import type { AnalysisResult, VideoComment, VideoDanmaku } from '@/types/analysis'
 import * as echarts from 'echarts'
+import { useDarkMode } from '@/composables/useDarkMode'
+
+const { isDark } = useDarkMode()
 
 const route = useRoute()
 const router = useRouter()
@@ -418,8 +433,11 @@ const fetchAnalysisResult = async () => {
 const renderChart = () => {
   if (!chartRef.value || !hasTimelineData.value) return
 
-  if (timelineChart) timelineChart.dispose()
-  timelineChart = echarts.init(chartRef.value)
+  if (chartRef.value.getAttribute('_echarts_instance_')) {
+    echarts.getInstanceByDom(chartRef.value)?.dispose()
+  }
+  const chart = echarts.init(chartRef.value)
+  timelineChart = chart
 
   // Parse timeline data - support both field name conventions
   let timelineData: any[] = []
@@ -448,14 +466,18 @@ const renderChart = () => {
     tooltip: { 
       trigger: 'axis',
       axisPointer: { type: 'line', lineStyle: { color: '#6366f1', width: 2 } },
+      backgroundColor: isDark.value ? '#1e293b' : '#fff',
+      borderColor: isDark.value ? '#334155' : '#e2e8f0',
+      textStyle: { color: isDark.value ? '#f1f5f9' : '#0f172a' },
       formatter: (params: any) => {
         if (!params || !params.length) return ''
         const item = normalized[params[0].dataIndex]
+        const textColor = isDark.value ? '#cbd5e1' : '#475569'
         return `<strong>${formatTime(item.time_point)}</strong><br/>
                 <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#6366f1;"></span>
-                情感均值: ${item.avg_sentiment}<br/>
-                <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#e5e7eb;"></span>
-                弹幕数量: ${item.danmaku_count}`
+                <span style="color: ${textColor}; font-size: 13px;">情感均值: ${item.avg_sentiment?.toFixed ? item.avg_sentiment.toFixed(4) : item.avg_sentiment}</span><br/>
+                <span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:#94a3b8;"></span>
+                <span style="color: ${textColor}; font-size: 13px;">弹幕数量: ${item.danmaku_count}</span>`
       }
     },
     grid: { left: '40', right: '20', bottom: '30', top: '30', containLabel: true },
@@ -463,7 +485,8 @@ const renderChart = () => {
       type: 'category',
       boundaryGap: false,
       data: normalized.map((item: any) => item.time_point),
-      axisLabel: { formatter: (val: any) => formatTime(val) }
+      axisLabel: { formatter: (val: any) => formatTime(val), color: isDark.value ? '#94a3b8' : '#64748b' },
+      axisLine: { lineStyle: { color: isDark.value ? '#334155' : '#e2e8f0' } }
     },
     yAxis: {
       type: 'value',
@@ -471,6 +494,7 @@ const renderChart = () => {
       max: 1,
       interval: 0.5,
       axisLabel: {
+        color: isDark.value ? '#94a3b8' : '#64748b',
         formatter: (val: number) => {
           if (val === 1) return '强正向'
           if (val === 0.5) return '偏正向'
@@ -480,7 +504,7 @@ const renderChart = () => {
           return String(val)
         }
       },
-      splitLine: { lineStyle: { type: 'dashed' } }
+      splitLine: { lineStyle: { type: 'dashed', color: isDark.value ? '#334155' : '#f1f5f9' } }
     },
     series: [
       {
@@ -533,6 +557,9 @@ const renderAspectChart = () => {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      backgroundColor: isDark.value ? '#1e293b' : '#fff',
+      borderColor: isDark.value ? '#334155' : '#e2e8f0',
+      textStyle: { color: isDark.value ? '#f1f5f9' : '#0f172a' },
       formatter: (params: any[]) => {
         const item = topAspects.value[params[0]?.dataIndex ?? 0]
         if (!item) return ''
@@ -541,33 +568,43 @@ const renderAspectChart = () => {
     },
     legend: {
       top: 0,
-      data: ['正面', '中性', '负面']
+      data: ['正面', '中性', '负面'],
+      textStyle: { color: isDark.value ? '#94a3b8' : '#64748b' }
     },
     grid: { left: 80, right: 120, top: 40, bottom: 20, containLabel: true },
     xAxis: {
       type: 'value',
       name: '评论数',
-      splitLine: { show: false }
+      nameTextStyle: { color: isDark.value ? '#94a3b8' : '#64748b' },
+      splitLine: { show: false },
+      axisLabel: { color: isDark.value ? '#94a3b8' : '#64748b' }
     },
     yAxis: {
       type: 'category',
       data: topAspects.value.map(i => i.aspect),
-      inverse: true
+      inverse: true,
+      axisLabel: { color: isDark.value ? '#cbd5e1' : '#334155' }
     },
     series: [
       {
         name: '正面',
         type: 'bar',
         stack: 'sentiment',
-        data: topAspects.value.map(i => i.positive),
-        itemStyle: { color: '#22c55e', borderRadius: [0, 0, 0, 0] },
+        data: topAspects.value.map(i => {
+           const isLast = (i.neutral === 0 || !i.neutral) && (i.negative === 0 || !i.negative)
+           return { value: i.positive, itemStyle: { borderRadius: isLast ? [0, 6, 6, 0] : [0, 0, 0, 0] } }
+        }),
+        itemStyle: { color: '#22c55e' },
         barWidth: 16
       },
       {
         name: '中性',
         type: 'bar',
         stack: 'sentiment',
-        data: topAspects.value.map(i => i.neutral),
+        data: topAspects.value.map(i => {
+           const isLast = (i.negative === 0 || !i.negative)
+           return { value: i.neutral, itemStyle: { borderRadius: isLast ? [0, 6, 6, 0] : [0, 0, 0, 0] } }
+        }),
         itemStyle: { color: '#94a3b8' },
         barWidth: 16
       },
@@ -575,8 +612,10 @@ const renderAspectChart = () => {
         name: '负面',
         type: 'bar',
         stack: 'sentiment',
-        data: topAspects.value.map(i => i.negative),
-        itemStyle: { color: '#ef4444', borderRadius: [0, 6, 6, 0] },
+        data: topAspects.value.map(i => {
+           return { value: i.negative, itemStyle: { borderRadius: [0, 6, 6, 0] } }
+        }),
+        itemStyle: { color: '#ef4444' },
         barWidth: 16,
         label: {
           show: true,
@@ -602,6 +641,11 @@ const renderAspectChart = () => {
      }
   })
 }
+
+watch(isDark, () => {
+  renderChart()
+  renderAspectChart()
+})
 
 const jumpToVideo = (seconds: number) => {
    if (!result.value?.task?.bvid) return
@@ -866,20 +910,169 @@ onBeforeUnmount(() => {
 .comments-list {
   max-height: 620px;
   overflow-y: auto;
-  border: 1px solid #e6edf8;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #fcfdff 0%, #ffffff 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-bg-base, #f8fafc);
+  border: 1px solid var(--color-border);
 }
 
-.comment-item {
-  padding: 18px 20px;
-  border-bottom: 1px solid #edf2f7;
-  margin-bottom: 0;
+/* Comment Cards List */
+.comments-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.comment-item:last-child {
-  border-bottom: none;
+.comment-card {
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comment-card:hover {
+  transform: translateY(-2px);
+  border-color: #6366f1;
+}
+
+.comment-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+}
+
+.comment-author-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.comment-username {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text-main);
+}
+
+.comment-likes {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comment-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Tag Modernization */
+.modern-tag {
+  border-radius: 8px !important;
+  font-weight: 500;
+  border: none !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px !important;
+}
+
+.modern-tag.sentiment-tag {
+  background: var(--el-color-success-light-9);
+}
+
+.modern-tag.sentiment-tag.el-tag--danger {
+  background: var(--el-color-danger-light-9);
+}
+
+.modern-tag.sentiment-tag.el-tag--info {
+  background: var(--el-color-info-light-9);
+}
+
+.tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.modern-tag.conf-tag {
+  background: var(--color-background-soft);
+  color: var(--color-text-light);
+  border: 1px solid var(--color-border) !important;
+}
+
+.modern-tag.aspect-tag {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.modern-tag.emotion-tag {
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning);
+}
+
+.comment-content-body {
+  color: var(--color-text-secondary);
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding-left: 52px;
+}
+
+.comment-context-quote {
+  margin-left: 52px;
+  padding: 10px 14px;
+  background: rgba(148, 163, 184, 0.1);
+  border-left: 3px solid #6366f1;
+  border-radius: 4px 8px 8px 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* List Danmaku Mode */
+.list-dm {
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+}
+
+.list-dm:hover {
+  border-color: #6366f1;
+}
+
+.dm-time-tag {
+  border-radius: 6px !important;
+}
+
+.dm-content {
+  font-size: 14px;
+  color: var(--color-text-main);
+  font-weight: 500;
+}
+
+.dm-tags {
+  display: flex;
+  gap: 8px;
 }
 
 .feedback-sentinel {
