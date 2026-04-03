@@ -81,7 +81,8 @@ public class PopularVideosController {
                     pages,
                     currentUser != null ? currentUser.getBiliSessdata() : null,
                     currentUser != null ? currentUser.getBiliJct() : null,
-                    currentUser != null ? currentUser.getBiliBuvid3() : null
+                    currentUser != null ? currentUser.getBiliBuvid3() : null,
+                    currentUser != null ? currentUser.getBiliCookieJson() : null
             );
             return ResponseEntity.ok(result);
         } catch (Exception e) {

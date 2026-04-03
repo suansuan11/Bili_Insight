@@ -12,6 +12,7 @@
         <result property="biliSessdata" column="bili_sessdata"/>
         <result property="biliJct" column="bili_jct"/>
         <result property="biliBuvid3" column="bili_buvid3"/>
+        <result property="biliCookieJson" column="bili_cookie_json"/>
         <result property="biliLoginAt" column="bili_login_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -35,6 +36,7 @@
         SET bili_sessdata = #{sessdata},
             bili_jct      = #{jct},
             bili_buvid3   = #{buvid3},
+            bili_cookie_json = #{cookieJson},
             bili_login_at = NOW(),
             updated_at    = NOW()
         WHERE id = #{userId}
@@ -45,6 +47,7 @@
         SET bili_sessdata = NULL,
             bili_jct      = NULL,
             bili_buvid3   = NULL,
+            bili_cookie_json = NULL,
             bili_login_at = NULL,
             updated_at    = NOW()
         WHERE id = #{userId}

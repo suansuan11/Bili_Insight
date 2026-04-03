@@ -57,7 +57,7 @@ public class PythonApiClient {
      * @param maxComments 最大评论获取数量（默认20000）
      * @return 是否提交成功
      */
-    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3, Integer maxComments) {
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson, Integer maxComments) {
         String url = pythonServiceUrl + "/api/analysis/video";
 
         try {
@@ -73,6 +73,9 @@ public class PythonApiClient {
             }
             if (buvid3 != null && !buvid3.trim().isEmpty()) {
                 requestBody.put("buvid3", buvid3);
+            }
+            if (cookieJson != null && !cookieJson.trim().isEmpty()) {
+                requestBody.put("cookie_json", cookieJson);
             }
 
             HttpHeaders headers = createHeaders();
@@ -98,14 +101,14 @@ public class PythonApiClient {
     }
     
     /** 兼容旧调用：不传maxComments */
-    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3) {
-        return submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, 2000);
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+        return submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, cookieJson, 2000);
     }
 
     /**
      * 提交前探测评论接口可用性，识别 B站 412 风控。
      */
-    public Map<String, Object> probeCommentAccess(String bvid, String sessdata, String biliJct, String buvid3) {
+    public Map<String, Object> probeCommentAccess(String bvid, String sessdata, String biliJct, String buvid3, String cookieJson) {
         String url = pythonServiceUrl + "/api/analysis/probe-comment";
         try {
             Map<String, Object> requestBody = new HashMap<>();
@@ -118,6 +121,9 @@ public class PythonApiClient {
             }
             if (buvid3 != null && !buvid3.trim().isEmpty()) {
                 requestBody.put("buvid3", buvid3);
+            }
+            if (cookieJson != null && !cookieJson.trim().isEmpty()) {
+                requestBody.put("cookie_json", cookieJson);
             }
 
             HttpHeaders headers = createHeaders();
@@ -149,7 +155,7 @@ public class PythonApiClient {
     
     /** 兼容旧调用：不传sessdata（用于系统自动触发的监控任务） */
     public boolean submitAnalysisTask(String bvid, String taskId) {
-        return submitAnalysisTask(bvid, taskId, null, null, null);
+        return submitAnalysisTask(bvid, taskId, null, null, null, null);
     }
 
     /**
@@ -234,7 +240,7 @@ public class PythonApiClient {
      * @param pages 抓取页数
      * @return 抓取结果JSON
      */
-    public String fetchPopularVideos(int pages, String sessdata, String biliJct, String buvid3) {
+    public String fetchPopularVideos(int pages, String sessdata, String biliJct, String buvid3, String cookieJson) {
         String url = pythonServiceUrl + "/api/popular/fetch?pages=" + pages;
         try {
             Map<String, Object> requestBody = new HashMap<>();
@@ -247,6 +253,9 @@ public class PythonApiClient {
             }
             if (buvid3 != null && !buvid3.trim().isEmpty()) {
                 requestBody.put("buvid3", buvid3);
+            }
+            if (cookieJson != null && !cookieJson.trim().isEmpty()) {
+                requestBody.put("cookie_json", cookieJson);
             }
 
             HttpHeaders headers = createHeaders();
@@ -261,7 +270,7 @@ public class PythonApiClient {
     }
 
     public String fetchPopularVideos(int pages) {
-        return fetchPopularVideos(pages, null, null, null);
+        return fetchPopularVideos(pages, null, null, null, null);
     }
 
     /**

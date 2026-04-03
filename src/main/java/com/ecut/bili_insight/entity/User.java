@@ -14,6 +14,7 @@ public class User {
     private String biliSessdata;
     private String biliJct;
     private String biliBuvid3;
+    private String biliCookieJson;
     private LocalDateTime biliLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

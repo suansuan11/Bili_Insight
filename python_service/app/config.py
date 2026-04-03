@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # API安全配置
     api_key: Optional[str] = None
 
+    # 浏览器态抓取配置
+    browser_fallback_enabled: bool = True
+    browser_headless: bool = True
+
 
 # 创建全局配置实例
 settings = Settings()

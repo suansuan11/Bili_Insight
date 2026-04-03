@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
+
 @Service
 public class BiliCredentialService {
 
@@ -88,7 +90,42 @@ public class BiliCredentialService {
         return status;
     }
 
-    private String buildCookie(User user) {
+    public String buildCookie(User user) {
+        if (user.getBiliCookieJson() != null && !user.getBiliCookieJson().trim().isEmpty()) {
+            try {
+                JsonNode cookieRoot = objectMapper.readTree(user.getBiliCookieJson());
+                if (cookieRoot.isObject()) {
+                    StringBuilder cookie = new StringBuilder();
+                    java.util.Iterator<Map.Entry<String, JsonNode>> fields = cookieRoot.fields();
+                    while (fields.hasNext()) {
+                        Map.Entry<String, JsonNode> field = fields.next();
+                        String key = field.getKey();
+                        if ("sessdata".equalsIgnoreCase(key) || "dedeuserid".equalsIgnoreCase(key)) {
+                            if (!"SESSDATA".equals(key) && !"DedeUserID".equals(key)) {
+                                continue;
+                            }
+                        }
+                        if (field.getValue() == null || field.getValue().isNull()) {
+                            continue;
+                        }
+                        String value = field.getValue().asText();
+                        if (value == null || value.trim().isEmpty()) {
+                            continue;
+                        }
+                        if (cookie.length() > 0) {
+                            cookie.append("; ");
+                        }
+                        cookie.append(key).append("=").append(value);
+                    }
+                    if (cookie.length() > 0) {
+                        return cookie.toString();
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("解析 bili_cookie_json 失败, userId={}: {}", user.getId(), e.getMessage());
+            }
+        }
+
         StringBuilder cookie = new StringBuilder("SESSDATA=").append(user.getBiliSessdata());
         if (user.getBiliJct() != null && !user.getBiliJct().trim().isEmpty()) {
             cookie.append("; bili_jct=").append(user.getBiliJct());

@@ -33,6 +33,7 @@ class QRStatusResponse(BaseModel):
     sessdata: Optional[str] = None
     bili_jct: Optional[str] = None
     buvid3: Optional[str] = None
+    cookie_json: Optional[str] = None
 
 
 @router.get("/qrcode", response_model=QRCodeResponse)
@@ -89,7 +90,8 @@ async def check_qr_status(qrcode_key: str):
             message=result["message"],
             sessdata=result.get("sessdata"),
             bili_jct=result.get("bili_jct"),
-            buvid3=result.get("buvid3")
+            buvid3=result.get("buvid3"),
+            cookie_json=result.get("cookie_json")
         )
 
     except Exception as e:

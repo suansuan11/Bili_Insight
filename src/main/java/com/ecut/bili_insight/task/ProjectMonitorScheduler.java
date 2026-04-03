@@ -94,7 +94,8 @@ public class ProjectMonitorScheduler {
                             project.getUserId(),
                             user != null ? user.getBiliSessdata() : null,
                             user != null ? user.getBiliJct() : null,
-                            user != null ? user.getBiliBuvid3() : null
+                            user != null ? user.getBiliBuvid3() : null,
+                            user != null ? user.getBiliCookieJson() : null
                     );
                     triggered++;
                 } else {

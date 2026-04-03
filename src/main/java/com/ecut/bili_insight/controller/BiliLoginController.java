@@ -1,6 +1,7 @@
 package com.ecut.bili_insight.controller;
 
 import com.ecut.bili_insight.mapper.UserMapper;
+import com.ecut.bili_insight.service.BiliCredentialService;
 import com.ecut.bili_insight.service.PythonApiClient;
 import com.ecut.bili_insight.util.JwtUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -37,6 +38,9 @@ public class BiliLoginController {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private BiliCredentialService biliCredentialService;
 
     // ── 从请求头的 Bearer token 里提取 userId ────────────────────────────
     private Long extractUserId(HttpServletRequest request) {
@@ -89,10 +93,11 @@ public class BiliLoginController {
                 String sessdata = json.has("sessdata") ? json.get("sessdata").asText(null) : null;
                 String biliJct  = json.has("bili_jct")  ? json.get("bili_jct").asText(null)  : null;
                 String buvid3   = json.has("buvid3")    ? json.get("buvid3").asText(null)    : null;
+                String cookieJson = json.has("cookie_json") ? json.get("cookie_json").asText(null) : null;
 
                 Long userId = extractUserId(request);
                 if (userId != null && sessdata != null) {
-                    int updated = userMapper.updateBiliCredential(userId, sessdata, biliJct, buvid3);
+                    int updated = userMapper.updateBiliCredential(userId, sessdata, biliJct, buvid3, cookieJson);
                     if (updated > 0) {
                         logger.info("B站凭证已绑定到用户 userId={}", userId);
                     } else {
@@ -135,9 +140,7 @@ public class BiliLoginController {
             try {
                 RestTemplate rt = new RestTemplate();
                 org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-                headers.set("Cookie", "SESSDATA=" + user.getBiliSessdata()
-                        + (user.getBiliJct() != null ? "; bili_jct=" + user.getBiliJct() : "")
-                        + (user.getBiliBuvid3() != null ? "; buvid3=" + user.getBiliBuvid3() : ""));
+                headers.set("Cookie", biliCredentialService.buildCookie(user));
                 headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
                 headers.set("Referer", "https://www.bilibili.com");
 
@@ -186,9 +189,7 @@ public class BiliLoginController {
             // 用 DB 里的 sessdata 直接请求 B站导航接口
             RestTemplate rt = new RestTemplate();
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.set("Cookie", "SESSDATA=" + user.getBiliSessdata()
-                    + (user.getBiliJct() != null ? "; bili_jct=" + user.getBiliJct() : "")
-                    + (user.getBiliBuvid3() != null ? "; buvid3=" + user.getBiliBuvid3() : ""));
+            headers.set("Cookie", biliCredentialService.buildCookie(user));
             headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
             headers.set("Referer", "https://www.bilibili.com");
 
@@ -259,4 +260,5 @@ public class BiliLoginController {
             return ResponseEntity.status(500).build();
         }
     }
+
 }

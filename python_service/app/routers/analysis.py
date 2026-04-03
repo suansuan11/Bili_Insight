@@ -24,6 +24,7 @@ class AnalyzeVideoRequest(BaseModel):
     sessdata: Optional[str] = None
     bili_jct: Optional[str] = None
     buvid3: Optional[str] = None
+    cookie_json: Optional[str] = None
     task_id: Optional[str] = None  # Java 侧传来的 task_id；存在时直接使用，不再自行创建
 
 
@@ -134,7 +135,7 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
     logger.info(f"收到视频分析请求 - BVID: {request.bvid}, 最大评论数: {request.max_comments}")
     try:
         # 获取凭证（由 Java 后端从 DB 读取后传入，无则游客模式）
-        credential = make_credential(request.sessdata, request.bili_jct, request.buvid3)
+        credential = make_credential(request.sessdata, request.bili_jct, request.buvid3, request.cookie_json)
         logger.debug(f"凭证创建完成 - 使用{'用户凭证' if request.sessdata else '游客模式'}")
 
         # 若 Java 侧已创建任务记录并传来 task_id，直接使用；否则自行创建
@@ -174,7 +175,7 @@ async def probe_comment_access(request: AnalyzeVideoRequest):
     用于 Java 提交任务前判断当前账号是否已触发 B站评论风控。
     """
     try:
-        credential = make_credential(request.sessdata, request.bili_jct, request.buvid3)
+        credential = make_credential(request.sessdata, request.bili_jct, request.buvid3, request.cookie_json)
         bili_service = BilibiliService(credential=credential)
         result = await bili_service.probe_comment_access(request.bvid)
         return CommentProbeResponse(

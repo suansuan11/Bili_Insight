@@ -1,4 +1,5 @@
 """B站扫码登录服务"""
+import json
 from typing import Dict
 from bilibili_api import login_v2
 
@@ -84,6 +85,11 @@ class QRLoginService:
         elif state == login_v2.QrCodeLoginEvents.DONE:
             # 登录成功，获取凭证
             credential = qr_login.get_credential()
+            cookie_dict = {
+                str(k): str(v)
+                for k, v in credential.get_cookies().items()
+                if v and str(k) not in {"sessdata", "dedeuserid"}
+            }
 
             # 清理已完成的会话
             del self.pending_logins[qrcode_key]
@@ -93,7 +99,8 @@ class QRLoginService:
                 "message": "登录成功",
                 "sessdata": credential.sessdata,
                 "bili_jct": credential.bili_jct,
-                "buvid3": credential.buvid3
+                "buvid3": credential.buvid3,
+                "cookie_json": json.dumps(cookie_dict, ensure_ascii=False)
             }
         else:
             return {

@@ -48,7 +48,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 提交视频分析任务（若已有 COMPLETED 任务则复用）
      */
     @Override
-    public String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3) {
+    public String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
         logger.info("Submitting analysis task: bvid={}, userId={}, hasCredential={}", bvid, userId, sessdata != null);
 
         AnalysisTask existingTask = taskMapper.findByBvid(bvid);
@@ -59,7 +59,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         }
 
         String taskId = createTaskInTransaction(bvid, userId);
-        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3);
+        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
         return taskId;
     }
 
@@ -80,10 +80,10 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 强制重新分析（忽略已有 COMPLETED 任务）
      */
     @Override
-    public String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3) {
+    public String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
         logger.info("Force submitting analysis task: bvid={}, userId={}", bvid, userId);
         String taskId = createTaskInTransaction(bvid, userId);
-        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3);
+        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
         return taskId;
     }
 
@@ -91,10 +91,10 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 异步调用Python分析服务，传入用户的B站凭证（可为null）
      */
     @Async
-    protected void callPythonServiceAsync(String bvid, String taskId, String sessdata, String biliJct, String buvid3) {
+    protected void callPythonServiceAsync(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson) {
         try {
             logger.info("Calling Python service async: taskId={}", taskId);
-            boolean success = pythonApiClient.submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3);
+            boolean success = pythonApiClient.submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
             if (!success) {
                 taskMapper.updateStatus(taskId, "FAILED", "Failed to call Python service");
                 logger.error("Python service call failed for task {}", taskId);

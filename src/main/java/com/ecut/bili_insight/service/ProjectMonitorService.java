@@ -52,7 +52,8 @@ public class ProjectMonitorService {
                                 project.getUserId(),
                                 user != null ? user.getBiliSessdata() : null,
                                 user != null ? user.getBiliJct() : null,
-                                user != null ? user.getBiliBuvid3() : null
+                                user != null ? user.getBiliBuvid3() : null,
+                                user != null ? user.getBiliCookieJson() : null
                         );
                         logger.info("项目 {} 自动提交分析任务: {}", project.getName(), bvid);
                     } catch (Exception e) {

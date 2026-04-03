@@ -21,6 +21,7 @@ class FetchRequest(BaseModel):
     sessdata: Optional[str] = None
     bili_jct: Optional[str] = None
     buvid3: Optional[str] = None
+    cookie_json: Optional[str] = None
 
 # 全局变量跟踪任务状态
 _fetch_task_running = False
@@ -31,7 +32,8 @@ async def fetch_popular_videos_task_async(
     pages: int = 1,
     sessdata: str = None,
     bili_jct: str = None,
-    buvid3: str = None
+    buvid3: str = None,
+    cookie_json: str = None
 ):
     """
     后台任务：爬取热门视频并存入数据库（异步版本）
@@ -52,8 +54,8 @@ async def fetch_popular_videos_task_async(
         )
 
         credential = None
-        if sessdata:
-            credential = make_credential(sessdata, bili_jct, buvid3)
+        if sessdata or cookie_json:
+            credential = make_credential(sessdata, bili_jct, buvid3, cookie_json)
 
         bili_service = BilibiliService(credential=credential)
         ordered_unique_videos: Dict[str, Dict] = {}
@@ -153,7 +155,8 @@ async def trigger_fetch_popular_videos(
         request.pages,
         request.sessdata,
         request.bili_jct,
-        request.buvid3
+        request.buvid3,
+        request.cookie_json
     )
 
     return {

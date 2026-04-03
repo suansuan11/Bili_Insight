@@ -91,7 +91,8 @@ public class AnalysisController {
                     bvid,
                     currentUser.getBiliSessdata(),
                     currentUser.getBiliJct(),
-                    currentUser.getBiliBuvid3()
+                    currentUser.getBiliBuvid3(),
+                    currentUser.getBiliCookieJson()
             );
             boolean riskControlled = Boolean.TRUE.equals(probeResult.get("riskControlled"));
             if (riskControlled) {
@@ -108,7 +109,8 @@ public class AnalysisController {
                     currentUser.getId(),
                     currentUser.getBiliSessdata(),
                     currentUser.getBiliJct(),
-                    currentUser.getBiliBuvid3()
+                    currentUser.getBiliBuvid3(),
+                    currentUser.getBiliCookieJson()
             );
 
             Map<String, Object> response = new HashMap<>();

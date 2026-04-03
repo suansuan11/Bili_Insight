@@ -15,6 +15,7 @@ cryptography
 pydantic-settings
 lxml
 curl_cffi
+playwright
 DBUtils
 # Transformer 情感分析
 transformers
