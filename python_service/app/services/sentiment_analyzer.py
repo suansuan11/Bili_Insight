@@ -37,6 +37,7 @@ class SentimentAnalyzer:
         self._tokenizers: Dict[str, object] = {}
         self._models: Dict[str, object] = {}
         self._use_fallback = not _TRANSFORMERS_AVAILABLE
+        self._transformer_failed = False
 
         if self._use_fallback:
             self._init_fallback()
@@ -72,6 +73,7 @@ class SentimentAnalyzer:
                 self._models[model_name] = model
             except Exception as e:
                 logger.error(f"模型加载失败: {model_name}, error={e}")
+                self._transformer_failed = True
                 raise RuntimeError(f"无法加载情感分析模型: {model_name}") from e
 
         return cfg, self._tokenizers[model_name], self._models[model_name]
@@ -112,15 +114,20 @@ class SentimentAnalyzer:
         if not isinstance(probs, list):
             probs = [probs]
 
-        label_probs = {
-            cfg.label_mapping[i]: float(probs[i])
-            for i in range(len(probs))
-            if i in cfg.label_mapping
-        }
+        label_probs = {"POSITIVE": 0.0, "NEUTRAL": 0.0, "NEGATIVE": 0.0}
+        raw_probs = {}
+        score = 0.0
+        for i in range(len(probs)):
+            prob = float(probs[i])
+            raw_probs[f"class_{i}"] = round(prob, 4)
+            if i in cfg.label_mapping:
+                label_probs[cfg.label_mapping[i]] = label_probs.get(cfg.label_mapping[i], 0.0) + prob
+            if i in cfg.score_mapping:
+                score += prob * cfg.score_mapping[i]
 
         label = max(label_probs, key=label_probs.get)
         confidence = label_probs[label]
-        score = label_probs.get("POSITIVE", 0.0) - label_probs.get("NEGATIVE", 0.0)
+        score = max(-1.0, min(1.0, score))
 
         return {
             "label": label,
@@ -128,7 +135,10 @@ class SentimentAnalyzer:
             "confidence": round(confidence, 4),
             "source": f"transformer_{text_type}_v1",
             "version": cfg.version,
-            "raw_probs": {k: round(v, 4) for k, v in label_probs.items()},
+            "raw_probs": {
+                "aggregated": {k: round(v, 4) for k, v in label_probs.items()},
+                "raw": raw_probs,
+            },
             "normalized_text": normalized.normalized_text,
         }
 
@@ -212,13 +222,14 @@ class SentimentAnalyzer:
 
         normalized = self.normalizer.normalize(text, text_type)
 
-        if self._use_fallback:
+        if self._use_fallback or self._transformer_failed:
             result = self._analyze_with_fallback(normalized, text_type)
         else:
             try:
                 result = self._analyze_with_transformer(normalized, text_type)
             except Exception as e:
                 logger.warning(f"Transformer 推理失败，本次请求回退到 SnowNLP: {e}")
+                self._transformer_failed = True
                 self._init_fallback()
                 result = self._analyze_with_fallback(normalized, text_type)
 
@@ -242,13 +253,14 @@ class SentimentAnalyzer:
 
         normalized = self.normalizer.normalize(text, text_type)
 
-        if self._use_fallback:
+        if self._use_fallback or self._transformer_failed:
             result = self._analyze_with_fallback(normalized, text_type, text_pair=aspect)
         else:
             try:
                 result = self._analyze_with_transformer(normalized, text_type, text_pair=aspect)
             except Exception as e:
                 logger.warning(f"Transformer aspect 推理失败，本次请求回退到 SnowNLP: {e}")
+                self._transformer_failed = True
                 self._init_fallback()
                 result = self._analyze_with_fallback(normalized, text_type, text_pair=aspect)
 

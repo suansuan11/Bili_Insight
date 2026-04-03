@@ -141,31 +141,31 @@
       </el-card>
 
       <!-- Comments and Danmaku Section -->
-      <el-card shadow="hover">
+      <el-card shadow="hover" class="feedback-card">
         <template #header>
-          <div class="flex flex-col md:flex-row justify-between items-center gap-4 py-1">
-            <div class="flex items-center gap-3 w-full md:w-auto">
+          <div class="feedback-header">
+            <div class="feedback-title-group">
                <span class="font-bold text-lg text-gray-800">详细反馈</span>
                <el-tag type="info" effect="plain" round class="font-medium px-3">
                   {{ viewMode === 'comments' ? filteredComments.length : filteredDanmakus.length }} 条{{ viewMode === 'comments' ? '评论' : '弹幕' }}
                </el-tag>
             </div>
             
-            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+            <div class="feedback-toolbar">
                <el-radio-group v-model="viewMode" size="default" fill="#6366f1">
                   <el-radio-button label="comments">评论列表</el-radio-button>
                   <el-radio-button label="danmaku">弹幕列表</el-radio-button>
                </el-radio-group>
                
-               <div class="flex items-center gap-2">
-                  <el-select v-model="commentFilter" placeholder="情感筛选" clearable size="default" class="w-32">
+               <div class="feedback-filters">
+                  <el-select v-model="commentFilter" placeholder="情感筛选" clearable size="default" class="filter-select">
                      <template #prefix><el-icon><Filter /></el-icon></template>
                      <el-option label="全部情感" value="" />
                      <el-option label="😊 正面" value="POSITIVE" />
                      <el-option label="😡 负面" value="NEGATIVE" />
                      <el-option label="😐 中性" value="NEUTRAL" />
                    </el-select>
-                   <el-select v-model="aspectFilter" placeholder="话题筛选" clearable size="default" class="w-32" v-if="viewMode === 'comments'">
+                   <el-select v-model="aspectFilter" placeholder="话题筛选" clearable size="default" class="filter-select" v-if="viewMode === 'comments'">
                      <template #prefix><el-icon><PriceTag /></el-icon></template>
                      <el-option label="全部话题" value="" />
                      <el-option v-for="aspect in availableAspects" :key="aspect" :label="aspect" :value="aspect" />
@@ -176,46 +176,77 @@
         </template>
         
         <!-- Comments List -->
-        <div v-if="viewMode === 'comments'" class="comments-list">
+        <div v-if="viewMode === 'comments'" class="comments-list" @scroll.passive="handleFeedbackScroll">
           <div v-if="filteredComments.length > 0">
-            <div v-for="comment in filteredComments.slice(0, displayCommentCount)" :key="comment.commentId" class="comment-item hover:bg-gray-50 transition-colors">
+            <div v-for="comment in visibleComments" :key="comment.commentId" class="comment-item hover:bg-gray-50 transition-colors">
               <div class="flex justify-between mb-2">
                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-medium text-gray-700">{{ comment.author || '用户' }}</span>
+                    <span class="font-medium text-gray-700">{{ comment.username || comment.author || '用户' }}</span>
                     <el-tag :type="getSentimentTagType(comment.sentimentLabel)" size="small" effect="plain">
-                      {{ getSentimentLabelText(comment.sentimentLabel) }}
+                      {{ getSentimentLabelText(comment.sentimentLabel, comment.sentimentIntensity) }}
                     </el-tag>
-                    <el-tag v-if="comment.aspect" type="warning" size="small" effect="light">{{ comment.aspect }}</el-tag>
+                    <el-tag
+                      v-if="comment.sentimentConfidence !== undefined"
+                      size="small"
+                      effect="light"
+                      type="info"
+                    >
+                      置信度 {{ formatConfidence(comment.sentimentConfidence) }}
+                    </el-tag>
+                    <el-tag
+                      v-for="detail in getVisibleAspectDetails(comment)"
+                      :key="`${comment.commentId}-${detail.aspect}`"
+                      :type="getSentimentTagType(detail.label)"
+                      size="small"
+                      effect="light"
+                    >
+                      {{ detail.aspect }} {{ getSentimentLabelText(detail.label, deriveIntensity(detail.score)) }}
+                    </el-tag>
+                    <el-tag
+                      v-for="tag in parseEmotionTags(comment.emotionTagsJson)"
+                      :key="`${comment.commentId}-${tag}`"
+                      size="small"
+                      effect="light"
+                      type="warning"
+                    >
+                      {{ formatEmotionTag(tag) }}
+                    </el-tag>
                  </div>
                  <span class="text-xs text-gray-400 shrink-0">点赞: {{ comment.likeCount }}</span>
               </div>
               <div class="text-gray-600 leading-relaxed text-sm break-words">{{ comment.content }}</div>
+              <div v-if="getAspectContext(comment)" class="mt-2 text-xs text-gray-400">
+                关联片段: {{ getAspectContext(comment) }}
+              </div>
             </div>
-            <div v-if="filteredComments.length > displayCommentCount" class="text-center mt-4">
-              <el-button @click="displayCommentCount += 20" type="primary" link>
-                加载更多 (剩余 {{ filteredComments.length - displayCommentCount }})
-              </el-button>
+            <div class="feedback-sentinel">
+              <span v-if="hasMoreComments">继续下滑加载更多评论</span>
+              <span v-else>已经展示全部评论</span>
             </div>
           </div>
           <el-empty v-else description="没有符合条件的评论" />
         </div>
 
         <!-- Danmaku List -->
-        <div v-else class="comments-list">
+        <div v-else class="comments-list" @scroll.passive="handleFeedbackScroll">
            <div v-if="filteredDanmakus.length > 0">
-              <div v-for="dm in filteredDanmakus.slice(0, displayCommentCount)" :key="dm.danmakuId" class="comment-item hover:bg-gray-50 transition-colors flex justify-between items-center">
+              <div v-for="dm in visibleDanmakus" :key="dm.danmakuId" class="comment-item hover:bg-gray-50 transition-colors flex justify-between items-center">
                  <div class="flex items-center gap-3 flex-1 min-w-0">
                     <el-tag size="small" type="info" effect="dark" class="font-mono">{{ formatTime(dm.dmTime) }}</el-tag>
                     <span class="text-gray-600 text-sm truncate" :title="dm.content">{{ dm.content }}</span>
                  </div>
-                 <el-tag :type="getSentimentTagType(dm.sentimentLabel)" size="small" effect="plain" class="ml-2 shrink-0">
-                      {{ getSentimentLabelText(dm.sentimentLabel) }}
-                 </el-tag>
+                 <div class="flex items-center gap-2 ml-2 shrink-0">
+                   <el-tag :type="getSentimentTagType(dm.sentimentLabel)" size="small" effect="plain">
+                      {{ getSentimentLabelText(dm.sentimentLabel, dm.sentimentIntensity) }}
+                   </el-tag>
+                   <el-tag v-if="dm.sentimentConfidence !== undefined" size="small" effect="light" type="info">
+                      {{ formatConfidence(dm.sentimentConfidence) }}
+                   </el-tag>
+                 </div>
               </div>
-              <div v-if="filteredDanmakus.length > displayCommentCount" class="text-center mt-4">
-                <el-button @click="displayCommentCount += 50" type="primary" link>
-                  加载更多 (剩余 {{ filteredDanmakus.length - displayCommentCount }})
-                </el-button>
+              <div class="feedback-sentinel">
+                <span v-if="hasMoreDanmakus">继续下滑加载更多弹幕</span>
+                <span v-else>已经展示全部弹幕</span>
               </div>
            </div>
            <el-empty v-else description="没有符合条件的弹幕" />
@@ -250,8 +281,18 @@ let resizeHandler: (() => void) | null = null
 const viewMode = ref<'comments' | 'danmaku'>('comments')
 const commentFilter = ref('')
 const aspectFilter = ref('')
-const displayCommentCount = ref(20)
+const visibleCommentCount = ref(20)
+const visibleDanmakuCount = ref(50)
 const playerUrl = ref('')
+const COMMENT_BATCH_SIZE = 20
+const DANMAKU_BATCH_SIZE = 50
+type AspectDetail = {
+  aspect: string
+  label: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+  score: number
+  confidence?: number
+  context?: string
+}
 
 // Computed Properties
 const availableAspects = computed(() => {
@@ -259,6 +300,7 @@ const availableAspects = computed(() => {
    const aspects = new Set<string>()
    result.value.comments.forEach(c => {
       if (c.aspect) aspects.add(c.aspect)
+      parseAspectDetails(c.aspectDetailsJson).forEach(detail => aspects.add(detail.aspect))
    })
    return Array.from(aspects)
 })
@@ -275,7 +317,10 @@ const topAspects = computed(() => {
         .map(([aspect, data]: [string, any]) => ({ 
           aspect, 
           count: data.count || 0,
-          score: data.score || 0
+          score: data.score || 0,
+          positive: data.positive || 0,
+          neutral: data.neutral || 0,
+          negative: data.negative || 0,
         }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
@@ -293,7 +338,7 @@ const topAspects = computed(() => {
     }
   })
   return Object.entries(counts)
-    .map(([aspect, count]) => ({ aspect, count, score: 0 }))
+    .map(([aspect, count]) => ({ aspect, count, score: 0, positive: 0, neutral: 0, negative: 0 }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 })
@@ -314,7 +359,7 @@ const filteredComments = computed<VideoComment[]>(() => {
   if (!result.value?.comments) return []
   return result.value.comments.filter(c => {
      const matchSentiment = !commentFilter.value || c.sentimentLabel === commentFilter.value
-     const matchAspect = !aspectFilter.value || c.aspect === aspectFilter.value
+     const matchAspect = !aspectFilter.value || c.aspect === aspectFilter.value || parseAspectDetails(c.aspectDetailsJson).some(detail => detail.aspect === aspectFilter.value)
      return matchSentiment && matchAspect
   })
 })
@@ -326,6 +371,11 @@ const filteredDanmakus = computed<VideoDanmaku[]>(() => {
       return matchSentiment
    })
 })
+
+const visibleComments = computed(() => filteredComments.value.slice(0, visibleCommentCount.value))
+const visibleDanmakus = computed(() => filteredDanmakus.value.slice(0, visibleDanmakuCount.value))
+const hasMoreComments = computed(() => filteredComments.value.length > visibleCommentCount.value)
+const hasMoreDanmakus = computed(() => filteredDanmakus.value.length > visibleDanmakuCount.value)
 
 // Methods
 const fetchAnalysisResult = async () => {
@@ -417,8 +467,19 @@ const renderChart = () => {
     },
     yAxis: {
       type: 'value',
-      min: 0,
+      min: -1,
       max: 1,
+      interval: 0.5,
+      axisLabel: {
+        formatter: (val: number) => {
+          if (val === 1) return '强正向'
+          if (val === 0.5) return '偏正向'
+          if (val === 0) return '中性'
+          if (val === -0.5) return '偏负向'
+          if (val === -1) return '强负向'
+          return String(val)
+        }
+      },
       splitLine: { lineStyle: { type: 'dashed' } }
     },
     series: [
@@ -437,7 +498,13 @@ const renderChart = () => {
           ])
         }
       }
-    ]
+    ],
+    markLine: {
+      silent: true,
+      symbol: 'none',
+      lineStyle: { color: '#94a3b8', type: 'dashed' },
+      data: [{ yAxis: 0 }]
+    }
   }
 
   timelineChart.setOption(option)
@@ -456,39 +523,75 @@ const renderChart = () => {
 }
 
 const renderAspectChart = () => {
-  console.log('[renderAspectChart] Called, topAspects:', topAspects.value)
   if (!aspectChartRef.value || topAspects.value.length === 0) {
-    console.log('[renderAspectChart] Early return - ref:', aspectChartRef.value, 'length:', topAspects.value.length)
     return
   }
 
   if (aspectChart) aspectChart.dispose()
   aspectChart = echarts.init(aspectChartRef.value)
-  console.log('[renderAspectChart] ECharts initialized')
   const option = {
-    tooltip: { trigger: 'item' },
-    legend: { bottom: '0', icon: 'circle', itemWidth: 8, itemHeight: 8 },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any[]) => {
+        const item = topAspects.value[params[0]?.dataIndex ?? 0]
+        if (!item) return ''
+        return `${item.aspect}<br/>正面: ${item.positive}<br/>中性: ${item.neutral}<br/>负面: ${item.negative}<br/>总数: ${item.count}<br/>平均情感分: ${Number(item.score || 0).toFixed(2)}`
+      }
+    },
+    legend: {
+      top: 0,
+      data: ['正面', '中性', '负面']
+    },
+    grid: { left: 80, right: 120, top: 40, bottom: 20, containLabel: true },
+    xAxis: {
+      type: 'value',
+      name: '评论数',
+      splitLine: { show: false }
+    },
+    yAxis: {
+      type: 'category',
+      data: topAspects.value.map(i => i.aspect),
+      inverse: true
+    },
     series: [
       {
-        name: '切面',
-        type: 'pie',
-        radius: ['45%', '70%'],
-        center: ['50%', '45%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
-        label: { show: false, position: 'center' },
-        emphasis: { 
-           label: { show: true, fontSize: '14', fontWeight: 'bold' },
-           itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' }
-        },
-        labelLine: { show: false },
-        data: topAspects.value.map(i => ({ value: i.count, name: i.aspect }))
+        name: '正面',
+        type: 'bar',
+        stack: 'sentiment',
+        data: topAspects.value.map(i => i.positive),
+        itemStyle: { color: '#22c55e', borderRadius: [0, 0, 0, 0] },
+        barWidth: 16
+      },
+      {
+        name: '中性',
+        type: 'bar',
+        stack: 'sentiment',
+        data: topAspects.value.map(i => i.neutral),
+        itemStyle: { color: '#94a3b8' },
+        barWidth: 16
+      },
+      {
+        name: '负面',
+        type: 'bar',
+        stack: 'sentiment',
+        data: topAspects.value.map(i => i.negative),
+        itemStyle: { color: '#ef4444', borderRadius: [0, 6, 6, 0] },
+        barWidth: 16,
+        label: {
+          show: true,
+          position: 'right',
+          formatter: (params: any) => {
+            const item = topAspects.value[params.dataIndex]
+            return item ? `${item.count} / ${Number(item.score || 0).toFixed(2)}` : ''
+          },
+          color: '#64748b',
+          fontSize: 12
+        }
       }
     ]
   }
-  console.log('[renderAspectChart] Option data:', option.series[0].data)
   aspectChart.setOption(option)
-  console.log('[renderAspectChart] Chart rendered successfully')
 
   // Interactive: Click pie to filter
   aspectChart.on('click', (params) => {
@@ -538,9 +641,15 @@ const getStatusText = (status: string) => {
   return texts[status] || status
 }
 
-const getSentimentLabelText = (sentiment: string) => {
-  const texts: Record<string, string> = { POSITIVE: '正面', NEGATIVE: '负面', NEUTRAL: '中性' }
-  return texts[sentiment] || sentiment
+const getSentimentLabelText = (sentiment: string, intensity?: string) => {
+  if (sentiment === 'NEUTRAL') return '中性'
+  if (sentiment === 'POSITIVE') {
+    return intensity === 'STRONG' ? '强正面' : intensity === 'MEDIUM' ? '偏正面' : '正面'
+  }
+  if (sentiment === 'NEGATIVE') {
+    return intensity === 'STRONG' ? '强负面' : intensity === 'MEDIUM' ? '偏负面' : '负面'
+  }
+  return sentiment
 }
 
 const getSentimentTagType = (sentiment: string) => {
@@ -552,6 +661,99 @@ const getPercentage = (ratio?: number) => {
   if (ratio === undefined || ratio === null) return '0%'
   return `${(ratio * 100).toFixed(1)}%`
 }
+
+const parseAspectDetails = (raw?: string): AspectDetail[] => {
+  if (!raw) return []
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const parseEmotionTags = (raw?: string): string[] => {
+  if (!raw) return []
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const getVisibleAspectDetails = (comment: VideoComment): AspectDetail[] => {
+  const details = parseAspectDetails(comment.aspectDetailsJson)
+  if (details.length > 0) return details.slice(0, 4)
+  return comment.aspect
+    ? [{ aspect: comment.aspect, label: comment.sentimentLabel, score: comment.sentimentScore || 0 }]
+    : []
+}
+
+const getAspectContext = (comment: VideoComment) => {
+  const details = parseAspectDetails(comment.aspectDetailsJson)
+  const first = details.find(item => item.context)
+  return first?.context || ''
+}
+
+const formatEmotionTag = (tag: string) => {
+  const tagMap: Record<string, string> = {
+    sarcasm: '反讽',
+    complaint: '吐槽',
+    praise: '夸赞',
+    amused: '调侃',
+    disappointment: '失望',
+    moved: '感动',
+    surprised: '惊艳',
+  }
+  return tagMap[tag] || tag
+}
+
+const formatConfidence = (value?: number) => {
+  if (value === undefined || value === null) return '0%'
+  return `${Math.round(Number(value) * 100)}%`
+}
+
+const deriveIntensity = (score?: number) => {
+  const absScore = Math.abs(Number(score || 0))
+  if (absScore >= 0.75) return 'STRONG'
+  if (absScore >= 0.4) return 'MEDIUM'
+  return 'WEAK'
+}
+
+const loadMoreComments = () => {
+  if (hasMoreComments.value) {
+    visibleCommentCount.value += COMMENT_BATCH_SIZE
+  }
+}
+
+const loadMoreDanmakus = () => {
+  if (hasMoreDanmakus.value) {
+    visibleDanmakuCount.value += DANMAKU_BATCH_SIZE
+  }
+}
+
+const handleFeedbackScroll = (event: Event) => {
+  const target = event.target as HTMLElement | null
+  if (!target) return
+  const nearBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 96
+  if (!nearBottom) return
+  if (viewMode.value === 'comments') {
+    loadMoreComments()
+  } else {
+    loadMoreDanmakus()
+  }
+}
+
+watch([commentFilter, aspectFilter], () => {
+  visibleCommentCount.value = COMMENT_BATCH_SIZE
+  visibleDanmakuCount.value = DANMAKU_BATCH_SIZE
+})
+
+watch(viewMode, () => {
+  visibleCommentCount.value = COMMENT_BATCH_SIZE
+  visibleDanmakuCount.value = DANMAKU_BATCH_SIZE
+})
 
 onMounted(() => {
   fetchAnalysisResult()
@@ -623,8 +825,69 @@ onBeforeUnmount(() => {
   height: 350px; 
   margin: 0 auto;
 }
-.comments-list { max-height: 600px; overflow-y: auto; }
-.comment-item { padding: 1rem; border-bottom: 1px solid #f3f4f6; border-radius: 8px; margin-bottom: 0.5rem; }
+.feedback-card {
+  border-radius: 16px;
+}
+
+.feedback-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.feedback-title-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.feedback-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.feedback-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-select {
+  width: 160px;
+}
+
+.comments-list {
+  max-height: 620px;
+  overflow-y: auto;
+  border: 1px solid #e6edf8;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fcfdff 0%, #ffffff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.comment-item {
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf2f7;
+  margin-bottom: 0;
+}
+
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.feedback-sentinel {
+  padding: 14px 16px 18px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
 
 .is-loading { animation: rotating 2s linear infinite; }
 @keyframes rotating {
@@ -636,4 +899,19 @@ onBeforeUnmount(() => {
 .comments-list::-webkit-scrollbar { width: 6px; }
 .comments-list::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 3px; }
 .comments-list::-webkit-scrollbar-track { background-color: transparent; }
+
+@media (max-width: 768px) {
+  .feedback-toolbar {
+    justify-content: flex-start;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .aspect-chart-container-wide {
+    width: 100%;
+    height: 360px;
+  }
+}
 </style>

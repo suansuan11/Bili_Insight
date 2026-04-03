@@ -67,26 +67,28 @@
     <!-- Charts Row -->
     <div class="charts-row">
       <!-- Trend Chart -->
-      <div class="chart-card chart-card--wide">
+      <div class="chart-card chart-card--wide chart-card--trend">
         <div class="chart-header">
           <span class="chart-title">任务趋势（近7天）</span>
           <button class="chart-link" @click="$router.push('/analysis')">查看全部 →</button>
         </div>
-        <div ref="trendChartRef" class="chart-body"></div>
+        <div ref="trendChartRef" class="chart-body chart-body--trend"></div>
       </div>
 
       <!-- Top Aspects -->
-      <div class="chart-card">
+      <div class="chart-card chart-card--aspects">
         <div class="chart-header">
           <span class="chart-title">热门切面关键词</span>
         </div>
-        <div v-if="topAspects.length > 0" class="aspects-list">
-          <div v-for="(item, index) in topAspects" :key="index" class="aspect-row">
-            <div class="aspect-left">
-              <span class="aspect-rank" :class="`rank-${Math.min(index + 1, 3)}`">{{ index + 1 }}</span>
-              <span class="aspect-name">{{ item.aspect }}</span>
+        <div v-if="topAspects.length > 0" class="aspects-scroll">
+          <div class="aspects-list">
+            <div v-for="(item, index) in topAspects" :key="index" class="aspect-row">
+              <div class="aspect-left">
+                <span class="aspect-rank" :class="`rank-${Math.min(index + 1, 3)}`">{{ index + 1 }}</span>
+                <span class="aspect-name" :title="item.aspect">{{ item.aspect }}</span>
+              </div>
+              <span class="aspect-count">{{ item.count }}</span>
             </div>
-            <span class="aspect-count">{{ item.count }}</span>
           </div>
         </div>
         <el-empty v-else :image-size="56" description="暂无数据" />
@@ -96,11 +98,11 @@
     <!-- Second Row -->
     <div class="charts-row">
       <!-- Sentiment Pie -->
-      <div class="chart-card">
+      <div class="chart-card chart-card--sentiment">
         <div class="chart-header">
           <span class="chart-title">情感分布</span>
         </div>
-        <div ref="sentimentChartRef" class="chart-body"></div>
+        <div ref="sentimentChartRef" class="chart-body chart-body--sentiment"></div>
       </div>
 
       <!-- Quick Actions -->
@@ -161,7 +163,14 @@ import {
   Loading, Plus, Compass, Download, DataAnalysis,
   Monitor, TrendCharts
 } from '@element-plus/icons-vue'
-import { getDashboardStats, getSentimentDistribution, getTopAspects, getTaskTrend, type DashboardStats } from '@/api/dashboard'
+import {
+  getDashboardStats,
+  getSentimentDistribution,
+  getTopAspects,
+  getTaskTrend,
+  type DashboardStats,
+  type DashboardSentimentDistribution
+} from '@/api/dashboard'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import request from '@/utils/request'
@@ -259,7 +268,7 @@ const renderTrendChart = (data: { date: string, count: number }[]) => {
     series: [{
       name: '创建任务',
       type: 'line',
-      smooth: true,
+      smooth: false,
       data: data.map(i => i.count),
       symbol: 'circle',
       symbolSize: 6,
@@ -275,30 +284,125 @@ const renderTrendChart = (data: { date: string, count: number }[]) => {
   })
 }
 
-const renderSentimentChart = (data: Record<string, number>) => {
+const renderSentimentChart = (data: DashboardSentimentDistribution | Record<string, number>) => {
   if (!sentimentChartRef.value) return
   const chart = echarts.init(sentimentChartRef.value)
 
+  const hasStructuredData = typeof data === 'object' && data !== null && 'counts' in data
+  const counts: Record<string, number> = hasStructuredData
+    ? (data as DashboardSentimentDistribution).counts
+    : (data as Record<string, number>)
+  const intensityBreakdown: Record<string, Record<string, number>> | undefined = hasStructuredData
+    ? (data as DashboardSentimentDistribution).intensityBreakdown
+    : undefined
+  const total = hasStructuredData
+    ? (data as DashboardSentimentDistribution).total
+    : Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0)
+
   const pieData = [
-    { value: data.POSITIVE || 0, name: '正面', itemStyle: { color: '#16a34a' } },
-    { value: data.NEUTRAL || 0, name: '中性', itemStyle: { color: '#d97706' } },
-    { value: data.NEGATIVE || 0, name: '负面', itemStyle: { color: '#dc2626' } }
+    { value: counts.POSITIVE || 0, name: '正面', itemStyle: { color: '#16a34a' } },
+    { value: counts.NEUTRAL || 0, name: '中性', itemStyle: { color: '#d97706' } },
+    { value: counts.NEGATIVE || 0, name: '负面', itemStyle: { color: '#dc2626' } }
   ].filter(i => i.value > 0)
 
+  const outerRingData = intensityBreakdown
+    ? [
+        { sentiment: 'POSITIVE', intensity: 'WEAK', label: '正面·轻度', color: '#86efac' },
+        { sentiment: 'POSITIVE', intensity: 'MEDIUM', label: '正面·中度', color: '#4ade80' },
+        { sentiment: 'POSITIVE', intensity: 'STRONG', label: '正面·强烈', color: '#16a34a' },
+        { sentiment: 'NEUTRAL', intensity: 'WEAK', label: '中性·轻度', color: '#fdba74' },
+        { sentiment: 'NEUTRAL', intensity: 'MEDIUM', label: '中性·中度', color: '#f59e0b' },
+        { sentiment: 'NEUTRAL', intensity: 'STRONG', label: '中性·强烈', color: '#b45309' },
+        { sentiment: 'NEGATIVE', intensity: 'WEAK', label: '负面·轻度', color: '#fca5a5' },
+        { sentiment: 'NEGATIVE', intensity: 'MEDIUM', label: '负面·中度', color: '#f87171' },
+        { sentiment: 'NEGATIVE', intensity: 'STRONG', label: '负面·强烈', color: '#dc2626' }
+      ]
+        .map(item => ({
+          name: item.label,
+          value: intensityBreakdown?.[item.sentiment]?.[item.intensity] || 0,
+          itemStyle: { color: item.color }
+        }))
+        .filter(item => item.value > 0)
+    : []
+
   chart.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)', backgroundColor: '#1e293b', borderColor: '#334155', textStyle: { color: '#f1f5f9' } },
-    legend: { bottom: '5%', left: 'center', textStyle: { color: '#64748b', fontSize: 12 } },
-    series: [{
-      name: '情感分布',
-      type: 'pie',
-      radius: ['44%', '70%'],
-      center: ['50%', '44%'],
-      avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
-      label: { show: false },
-      emphasis: { label: { show: true, fontSize: 15, fontWeight: 'bold', color: '#0f172a' } },
-      data: pieData
-    }]
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)',
+      backgroundColor: '#1e293b',
+      borderColor: '#334155',
+      textStyle: { color: '#f1f5f9' }
+    },
+    legend: {
+      bottom: '2%',
+      left: 'center',
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: { color: '#64748b', fontSize: 12 },
+      formatter: (name: string) => {
+        const item = pieData.find(entry => entry.name === name)
+        return item ? `${name} ${item.value}` : name
+      }
+    },
+    graphic: [
+      {
+        type: 'text',
+        left: 'center',
+        top: '40%',
+        style: {
+          text: '评论情感',
+          textAlign: 'center',
+          fill: '#94a3b8',
+          fontSize: 12,
+          fontWeight: 500
+        }
+      },
+      {
+        type: 'text',
+        left: 'center',
+        top: '47%',
+        style: {
+          text: String(total || 0),
+          textAlign: 'center',
+          fill: '#0f172a',
+          fontSize: 24,
+          fontWeight: 700
+        }
+      }
+    ],
+    series: outerRingData.length > 0
+      ? [
+          {
+            name: '主情感',
+            type: 'pie',
+            radius: ['28%', '48%'],
+            center: ['50%', '40%'],
+            itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 3 },
+            label: { show: false },
+            emphasis: { scale: true },
+            data: pieData
+          },
+          {
+            name: '情感强度',
+            type: 'pie',
+            radius: ['56%', '78%'],
+            center: ['50%', '40%'],
+            itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+            label: { show: false },
+            emphasis: { scale: true },
+            data: outerRingData
+          }
+        ]
+      : [{
+          name: '情感分布',
+          type: 'pie',
+          radius: ['42%', '72%'],
+          center: ['50%', '40%'],
+          itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false },
+          emphasis: { label: { show: true, fontSize: 15, fontWeight: 'bold', color: '#0f172a' } },
+          data: pieData
+        }]
   })
 }
 
@@ -468,6 +572,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 16px;
+  align-items: start;
 }
 
 .chart-card {
@@ -475,10 +580,22 @@ onMounted(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .chart-card--wide {
   /* already 2fr from parent grid */
+}
+
+.chart-card--trend,
+.chart-card--aspects {
+  height: 340px;
+}
+
+.chart-card--sentiment {
+  min-height: 320px;
 }
 
 .chart-header {
@@ -510,10 +627,27 @@ onMounted(() => {
 }
 
 .chart-body {
+  flex: 1;
+  min-height: 0;
   height: 220px;
 }
 
+.chart-body--trend {
+  height: 260px;
+}
+
+.chart-body--sentiment {
+  height: 280px;
+}
+
 /* Aspects list */
+.aspects-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 .aspects-list {
   display: flex;
   flex-direction: column;
@@ -561,6 +695,9 @@ onMounted(() => {
   font-size: 14px;
   color: var(--color-text-main);
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aspect-count {
@@ -570,6 +707,19 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: 20px;
   font-weight: 600;
+}
+
+.aspects-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.aspects-scroll::-webkit-scrollbar-thumb {
+  background: #dbe3f1;
+  border-radius: 999px;
+}
+
+.aspects-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* ===== Quick Actions ===== */

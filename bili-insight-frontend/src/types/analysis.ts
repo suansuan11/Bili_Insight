@@ -13,25 +13,35 @@ export interface AnalysisTask {
 
 export interface VideoComment {
     commentId: number
-    taskId: number
+    taskId: string
     bvid: string
-    // content maps to 'message' conceptually
     content: string
-    // sentimentLabel maps to 'sentiment'
     sentimentLabel: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
     sentimentScore: number
+    sentimentConfidence?: number
+    sentimentIntensity?: 'WEAK' | 'MEDIUM' | 'STRONG'
+    sentimentSource?: string
+    sentimentVersion?: string
+    emotionTagsJson?: string
+    aspectDetailsJson?: string
     aspect?: string
+    username?: string
     author?: string
     likeCount?: number
 }
 
 export interface VideoDanmaku {
     danmakuId: number
-    taskId: number
+    taskId: string
     bvid: string
     content: string
     sentimentLabel: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
     sentimentScore: number
+    sentimentConfidence?: number
+    sentimentIntensity?: 'WEAK' | 'MEDIUM' | 'STRONG'
+    sentimentSource?: string
+    sentimentVersion?: string
+    emotionTagsJson?: string
     dmTime: number
 }
 

@@ -42,6 +42,17 @@ class TextNormalizer:
         "蚌埠住了": "忍不了了",
         "冲冲冲": "来了",
         "芜湖": "起飞",
+        "泪目": "感动",
+        "绷不住了": "忍不住了",
+        "下头": "失望",
+        "逆天": "离谱",
+        "绝绝绝": "太好了",
+        "封神": "神作",
+        "抽象": "离谱",
+        "尬": "尴尬",
+        "好耶": "开心",
+        "哭死": "非常感动",
+        "笑不活了": "笑死我了",
     }
 
     def normalize(self, text: str, text_type: str = "comment") -> NormalizedText:
@@ -65,6 +76,7 @@ class TextNormalizer:
             "length": len(t),
             "text_type": text_type,
             "is_short": len(t) <= 15,  # 弹幕/短评特征
+            "raw_upper_ratio": sum(1 for ch in t if ch.isupper()) / max(len(t), 1),
         }
 
         # 1. 去除 URL
@@ -84,6 +96,7 @@ class TextNormalizer:
         # 多个感叹号 -> !! (记录到 features)
         exclaim_count = len(re.findall(r'[!！]', t))
         features["exclaim_count"] = exclaim_count
+        features["question_count"] = len(re.findall(r'[?？]', t))
         t = re.sub(r'[!！]{2,}', '！！', t)
         t = re.sub(r'[?？]{2,}', '？？', t)
         t = re.sub(r'[~～]{2,}', '～', t)
@@ -97,9 +110,12 @@ class TextNormalizer:
         if text_type == "danmaku":
             t = re.sub(r'\b2{3,}\b', '哈哈哈', t)  # 233 -> 哈哈哈
             t = re.sub(r'\b6{3,}\b', '好厉害', t)   # 666 -> 好厉害
+            t = re.sub(r'\b9{2,}\b', '厉害', t)
+            t = re.sub(r'\b1{2,}\b', '好', t)
 
         # 最终清理首尾空白
         t = t.strip()
+        features["normalized_length"] = len(t)
 
         return NormalizedText(
             raw_text=raw,

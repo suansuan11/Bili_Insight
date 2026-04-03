@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
+import java.util.ArrayList;
 
 /**
  * Dashboard statistics controller
@@ -78,24 +80,53 @@ public class DashboardController {
     }
 
     /**
-     * Get sentiment distribution for current user's analyzed comments
-     * 返回格式: { "POSITIVE": 100, "NEUTRAL": 50, "NEGATIVE": 30 }
+     * Get sentiment distribution for current user's analyzed comments.
+     * 返回格式:
+     * {
+     *   "counts": { "POSITIVE": 100, "NEUTRAL": 50, "NEGATIVE": 30 },
+     *   "intensityBreakdown": {
+     *     "POSITIVE": { "WEAK": 10, "MEDIUM": 40, "STRONG": 50 },
+     *     "NEUTRAL": { "WEAK": 50, "MEDIUM": 0, "STRONG": 0 },
+     *     "NEGATIVE": { "WEAK": 5, "MEDIUM": 10, "STRONG": 15 }
+     *   },
+     *   "total": 180
+     * }
      */
     @GetMapping("/sentiment-distribution")
     public Result<Map<String, Object>> getSentimentDistribution() {
         try {
             List<Map<String, Object>> list = dashboardMapper.getSentimentDistribution(getCurrentUserId());
             Map<String, Object> result = new HashMap<>();
-            result.put("POSITIVE", 0);
-            result.put("NEUTRAL", 0);
-            result.put("NEGATIVE", 0);
+            Map<String, Integer> counts = new HashMap<>();
+            counts.put("POSITIVE", 0);
+            counts.put("NEUTRAL", 0);
+            counts.put("NEGATIVE", 0);
+
+            Map<String, Map<String, Integer>> intensityBreakdown = new HashMap<>();
+            intensityBreakdown.put("POSITIVE", createEmptyIntensityMap());
+            intensityBreakdown.put("NEUTRAL", createEmptyIntensityMap());
+            intensityBreakdown.put("NEGATIVE", createEmptyIntensityMap());
+
+            int total = 0;
             for (Map<String, Object> row : list) {
                 String label = String.valueOf(row.get("sentiment_label"));
+                String intensity = row.get("sentiment_intensity") == null ? "WEAK" : String.valueOf(row.get("sentiment_intensity"));
                 Object count = row.get("count");
-                if (label != null && count != null) {
-                    result.put(label, count);
+                if (label != null && count instanceof Number && counts.containsKey(label)) {
+                    int countValue = ((Number) count).intValue();
+                    total += countValue;
+                    counts.put(label, counts.get(label) + countValue);
+
+                    Map<String, Integer> labelBreakdown = intensityBreakdown.get(label);
+                    if (labelBreakdown != null) {
+                        labelBreakdown.put(intensity, labelBreakdown.getOrDefault(intensity, 0) + countValue);
+                    }
                 }
             }
+
+            result.put("counts", counts);
+            result.put("intensityBreakdown", intensityBreakdown);
+            result.put("total", total);
             return Result.success(result);
         } catch (Exception e) {
             return Result.failed(ResultCode.FAILED, e.getMessage());
@@ -121,10 +152,36 @@ public class DashboardController {
     @GetMapping("/task-trend")
     public Result<List<Map<String, Object>>> getTaskTrend() {
         try {
-            List<Map<String, Object>> list = dashboardMapper.getTaskTrend(getCurrentUserId());
-            return Result.success(list);
+            List<Map<String, Object>> raw = dashboardMapper.getTaskTrend(getCurrentUserId());
+            Map<String, Number> countByDate = new HashMap<>();
+            for (Map<String, Object> row : raw) {
+                if (row.get("date") != null && row.get("count") != null) {
+                    countByDate.put(String.valueOf(row.get("date")), (Number) row.get("count"));
+                }
+            }
+
+            List<Map<String, Object>> normalized = new ArrayList<>();
+            LocalDate today = LocalDate.now();
+            for (int i = 6; i >= 0; i--) {
+                LocalDate date = today.minusDays(i);
+                String dateStr = date.toString();
+                Map<String, Object> item = new HashMap<>();
+                item.put("date", dateStr);
+                item.put("count", countByDate.getOrDefault(dateStr, 0));
+                normalized.add(item);
+            }
+
+            return Result.success(normalized);
         } catch (Exception e) {
             return Result.failed(ResultCode.FAILED, e.getMessage());
         }
+    }
+
+    private Map<String, Integer> createEmptyIntensityMap() {
+        Map<String, Integer> map = new HashMap<>();
+        map.put("WEAK", 0);
+        map.put("MEDIUM", 0);
+        map.put("STRONG", 0);
+        return map;
     }
 }

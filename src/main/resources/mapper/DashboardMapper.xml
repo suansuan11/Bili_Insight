@@ -48,15 +48,17 @@
         </where>
     </select>
 
-    <!-- 当前用户评论的情感分布 -->
+    <!-- 当前用户评论的情感分布（含强度） -->
     <select id="getSentimentDistribution" resultType="java.util.Map">
-        SELECT vc.sentiment_label, COUNT(*) as count
+        SELECT vc.sentiment_label,
+               COALESCE(vc.sentiment_intensity, 'WEAK') AS sentiment_intensity,
+               COUNT(*) as count
         FROM video_comment vc
         INNER JOIN analysis_task at ON vc.task_id = at.task_id
         <where>
             <if test="userId != null">at.user_id = #{userId}</if>
         </where>
-        GROUP BY vc.sentiment_label
+        GROUP BY vc.sentiment_label, COALESCE(vc.sentiment_intensity, 'WEAK')
     </select>
 
     <!-- 当前用户评论中出现最多的维度 -->

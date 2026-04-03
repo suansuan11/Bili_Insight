@@ -14,6 +14,7 @@ class ModelConfig:
     version: str
     max_length: int
     label_mapping: Dict[int, str]
+    score_mapping: Dict[int, float]
     # HuggingFace Hub 名称（当本地不存在时回退到此）
     hf_hub_name: str = ""
 
@@ -22,13 +23,10 @@ class ModelRegistry:
     """
     模型注册表
 
-    推荐中文情感分类模型（三分类 POSITIVE / NEUTRAL / NEGATIVE）：
-    - lxyuan/distilbert-base-multilingual-cased-sentiments-student
-      （多语言，含中文，有三分类，下载小）
-    - techthiyanes/chinese_sentiment (3分类)
-    - cardiffnlp/twitter-xlm-roberta-base-sentiment (多语言)
-
-    如果使用五分类（1-5分星）模型，label_mapping 需相应调整。
+    当前默认改为中文 RoBERTa 五级情感模型，再折叠为：
+    1/2 星 -> NEGATIVE
+    3 星   -> NEUTRAL
+    4/5 星 -> POSITIVE
 
     注意：
     - 首次加载会自动从 HuggingFace Hub 下载模型
@@ -36,24 +34,48 @@ class ModelRegistry:
     - 可通过环境变量 COMMENT_MODEL / DANMAKU_MODEL 覆盖
     """
 
-    # 评论模型：较长文本，max_length 256
-    # 注意: lxyuan/distilbert-base-multilingual-cased-sentiments-student
-    #   id2label = {0: positive, 1: neutral, 2: negative}
+    # 评论模型：中文语境更强，五级评分模型再折叠为三极性
     COMMENT_MODEL = ModelConfig(
-        model_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
-        version="comment-multilingual-distilbert-v1.0.0",
+        model_name="H-Z-Ning/Senti-RoBERTa-Mini",
+        version="comment-chinese-roberta-v2.0.0",
         max_length=256,
-        label_mapping={0: "POSITIVE", 1: "NEUTRAL", 2: "NEGATIVE"},
-        hf_hub_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+        label_mapping={
+            0: "NEGATIVE",
+            1: "NEGATIVE",
+            2: "NEUTRAL",
+            3: "POSITIVE",
+            4: "POSITIVE",
+        },
+        score_mapping={
+            0: -1.0,
+            1: -0.55,
+            2: 0.0,
+            3: 0.55,
+            4: 1.0,
+        },
+        hf_hub_name="H-Z-Ning/Senti-RoBERTa-Mini"
     )
 
-    # 弹幕模型：短文本，max_length 64（与评论共用同一模型，后续可替换）
+    # 弹幕模型：当前同样切到中文 RoBERTa，但缩短最大长度
     DANMAKU_MODEL = ModelConfig(
-        model_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
-        version="danmaku-multilingual-distilbert-v1.0.0",
-        max_length=64,
-        label_mapping={0: "POSITIVE", 1: "NEUTRAL", 2: "NEGATIVE"},
-        hf_hub_name="lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+        model_name="H-Z-Ning/Senti-RoBERTa-Mini",
+        version="danmaku-chinese-roberta-v2.0.0",
+        max_length=96,
+        label_mapping={
+            0: "NEGATIVE",
+            1: "NEGATIVE",
+            2: "NEUTRAL",
+            3: "POSITIVE",
+            4: "POSITIVE",
+        },
+        score_mapping={
+            0: -1.0,
+            1: -0.55,
+            2: 0.0,
+            3: 0.55,
+            4: 1.0,
+        },
+        hf_hub_name="H-Z-Ning/Senti-RoBERTa-Mini"
     )
 
     @classmethod
@@ -79,5 +101,6 @@ class ModelRegistry:
             version=f"{base.version}-env",
             max_length=base.max_length,
             label_mapping=base.label_mapping,
+            score_mapping=base.score_mapping,
             hf_hub_name=env_model_name,
         )

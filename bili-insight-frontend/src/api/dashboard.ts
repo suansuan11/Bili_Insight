@@ -14,11 +14,17 @@ export interface DashboardStats {
     completed_tasks: number
 }
 
+export interface DashboardSentimentDistribution {
+    counts: Record<string, number>
+    intensityBreakdown: Record<string, Record<string, number>>
+    total: number
+}
+
 export const getDashboardStats = (): Promise<ApiResponse<DashboardStats>> => {
     return request.get('/insight/dashboard/stats')
 }
 
-export const getSentimentDistribution = (): Promise<ApiResponse<Record<string, number>>> => {
+export const getSentimentDistribution = (): Promise<ApiResponse<DashboardSentimentDistribution>> => {
     return request.get('/insight/dashboard/sentiment-distribution')
 }
 
