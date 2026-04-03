@@ -18,10 +18,12 @@ public interface IAnalysisTaskService {
      *
      * @param bvid      视频BVID
      * @param userId    提交用户ID
-     * @param sessdata  用户的B站SESSDATA（可为null，Python将使用全局凭证）
+     * @param sessdata  用户的B站SESSDATA（可为null，Python将使用游客模式）
+     * @param biliJct   用户绑定的 bili_jct
+     * @param buvid3    用户绑定的 buvid3
      * @return 任务ID
      */
-    String submitAnalysisTask(String bvid, Long userId, String sessdata);
+    String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3);
 
     /**
      * 强制重新分析（忽略已有 COMPLETED 任务，始终创建新任务）
@@ -29,9 +31,11 @@ public interface IAnalysisTaskService {
      * @param bvid      视频BVID
      * @param userId    所属用户ID
      * @param sessdata  用户的B站SESSDATA（可为null）
+     * @param biliJct   用户绑定的 bili_jct
+     * @param buvid3    用户绑定的 buvid3
      * @return 新任务ID
      */
-    String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata);
+    String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3);
 
     /**
      * 查询任务状态

@@ -19,13 +19,20 @@ MAX_FETCH_PAGES = 12
 class FetchRequest(BaseModel):
     pages: int = 1
     sessdata: Optional[str] = None
+    bili_jct: Optional[str] = None
+    buvid3: Optional[str] = None
 
 # 全局变量跟踪任务状态
 _fetch_task_running = False
 _last_fetch_result = {"status": "never_run", "count": 0}
 
 
-async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
+async def fetch_popular_videos_task_async(
+    pages: int = 1,
+    sessdata: str = None,
+    bili_jct: str = None,
+    buvid3: str = None
+):
     """
     后台任务：爬取热门视频并存入数据库（异步版本）
     仅当抓取到至少 100 个唯一热门视频时，才会清空旧数据并整表重建。
@@ -46,7 +53,7 @@ async def fetch_popular_videos_task_async(pages: int = 1, sessdata: str = None):
 
         credential = None
         if sessdata:
-            credential = make_credential(sessdata)
+            credential = make_credential(sessdata, bili_jct, buvid3)
 
         bili_service = BilibiliService(credential=credential)
         ordered_unique_videos: Dict[str, Dict] = {}
@@ -141,7 +148,13 @@ async def trigger_fetch_popular_videos(
         )
 
     # 直接添加异步任务，不使用同步包装
-    background_tasks.add_task(fetch_popular_videos_task_async, request.pages, request.sessdata)
+    background_tasks.add_task(
+        fetch_popular_videos_task_async,
+        request.pages,
+        request.sessdata,
+        request.bili_jct,
+        request.buvid3
+    )
 
     return {
         "status": "success",

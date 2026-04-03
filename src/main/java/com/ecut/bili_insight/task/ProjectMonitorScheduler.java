@@ -2,9 +2,12 @@ package com.ecut.bili_insight.task;
 
 import com.ecut.bili_insight.entity.AnalysisTask;
 import com.ecut.bili_insight.entity.Project;
+import com.ecut.bili_insight.entity.User;
 import com.ecut.bili_insight.mapper.AnalysisTaskMapper;
 import com.ecut.bili_insight.mapper.ProjectMapper;
+import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
+import com.ecut.bili_insight.service.BiliCredentialService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -40,6 +43,12 @@ public class ProjectMonitorScheduler {
     private IAnalysisTaskService analysisTaskService;
 
     @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private BiliCredentialService biliCredentialService;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     /**
@@ -65,14 +74,28 @@ public class ProjectMonitorScheduler {
                 continue;
             }
 
+            User user = userMapper.findById(project.getUserId());
+            BiliCredentialService.CredentialStatus credentialStatus = biliCredentialService.checkCredential(user);
+            if (credentialStatus.hasCredential() && credentialStatus.isExpired()) {
+                logger.warn("[监测调度] 用户 {} 的 B站凭证已过期，跳过项目 {}",
+                        project.getUserId(), project.getId());
+                skipped += bvids.size();
+                continue;
+            }
+
             logger.info("[监测调度] 项目[{}] userId={} 共 {} 个监测目标",
                     project.getName(), project.getUserId(), bvids.size());
 
             for (String bvid : bvids) {
                 if (needsAnalysis(bvid)) {
                     logger.info("[监测调度] 触发分析: bvid={}, projectId={}", bvid, project.getId());
-                    // 监控任务由系统触发，sessdata=null 使用 Python 全局凭证
-                    analysisTaskService.forceSubmitAnalysisTask(bvid, project.getUserId(), null);
+                    analysisTaskService.forceSubmitAnalysisTask(
+                            bvid,
+                            project.getUserId(),
+                            user != null ? user.getBiliSessdata() : null,
+                            user != null ? user.getBiliJct() : null,
+                            user != null ? user.getBiliBuvid3() : null
+                    );
                     triggered++;
                 } else {
                     skipped++;

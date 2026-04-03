@@ -1,5 +1,4 @@
-"""B站凭证管理器 - 优先使用 Java 传入的用户级凭证，无则回退到 .env 系统级凭证"""
-import os
+"""B站凭证管理器 - 仅使用 Java 传入的用户级凭证，无则游客模式"""
 from typing import Optional
 from bilibili_api import Credential
 
@@ -12,7 +11,7 @@ def make_credential(sessdata: Optional[str],
     """
     根据 sessdata 创建 Credential 对象。
 
-    优先使用传入的 sessdata；若为空则回退到 .env 中的 BILIBILI_SESSDATA。
+    仅使用 Java 后端显式传入的用户级凭证；若为空则进入游客模式。
 
     Args:
         sessdata: 由 Java 后端从数据库读取后传入
@@ -22,14 +21,7 @@ def make_credential(sessdata: Optional[str],
     Returns:
         Credential 对象；所有来源均为空时返回 None（游客模式）
     """
-    # 优先使用传入的 sessdata
-    effective_sessdata = sessdata
-
-    # 回退到 .env 系统级凭证
-    if not effective_sessdata:
-        effective_sessdata = os.getenv("BILIBILI_SESSDATA", "").strip() or None
-        if effective_sessdata:
-            logger.info("使用 .env 系统级 BILIBILI_SESSDATA 凭证")
+    effective_sessdata = (sessdata or "").strip() or None
 
     if not effective_sessdata:
         logger.warning("无可用 SESSDATA，将以游客模式访问B站API（评论数量可能受限）")

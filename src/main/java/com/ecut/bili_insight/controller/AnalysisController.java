@@ -9,6 +9,7 @@ import com.ecut.bili_insight.entity.VideoDanmaku;
 import com.ecut.bili_insight.entity.SentimentTimeline;
 import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
+import com.ecut.bili_insight.service.BiliCredentialService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class AnalysisController {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private BiliCredentialService biliCredentialService;
+
     /** 获取当前登录用户（含B站凭证） */
     private User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -46,12 +50,6 @@ public class AnalysisController {
     private Long getCurrentUserId() {
         User user = getCurrentUser();
         return user != null ? user.getId() : null;
-    }
-
-    /** 获取当前用户绑定的 B站 SESSDATA（可为null） */
-    private String getCurrentUserSessdata() {
-        User user = getCurrentUser();
-        return user != null ? user.getBiliSessdata() : null;
     }
 
     /**
@@ -65,6 +63,11 @@ public class AnalysisController {
         logger.info("Received analysis submission request for BVID: {}", bvid);
 
         try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return Result.failed(ResultCode.UNAUTHORIZED, "用户未登录");
+            }
+
             // 参数校验
             if (bvid == null || bvid.trim().isEmpty()) {
                 return Result.failed(ResultCode.FAILED, "BVID不能为空");
@@ -75,8 +78,19 @@ public class AnalysisController {
                 return Result.failed(ResultCode.FAILED, "BVID格式无效");
             }
 
+            BiliCredentialService.CredentialStatus credentialStatus = biliCredentialService.checkCredential(currentUser);
+            if (credentialStatus.hasCredential() && credentialStatus.isExpired()) {
+                return Result.failed(ResultCode.FAILED, "B站凭证已过期，请前往设置页重新扫码绑定");
+            }
+
             // 提交任务，携带当前用户的B站凭证（若已绑定）
-            String taskId = analysisTaskService.submitAnalysisTask(bvid, getCurrentUserId(), getCurrentUserSessdata());
+            String taskId = analysisTaskService.submitAnalysisTask(
+                    bvid,
+                    currentUser.getId(),
+                    currentUser.getBiliSessdata(),
+                    currentUser.getBiliJct(),
+                    currentUser.getBiliBuvid3()
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("task_id", taskId);

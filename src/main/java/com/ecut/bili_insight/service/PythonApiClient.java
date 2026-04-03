@@ -51,11 +51,13 @@ public class PythonApiClient {
      * 提交视频分析任务到Python服务
      * @param bvid      视频BVID
      * @param taskId    Java端任务ID
-     * @param sessdata  当前用户的B站SESSDATA（可为null，则Python使用全局凭证）
+     * @param sessdata  当前用户的B站SESSDATA（可为null，则Python使用游客模式）
+     * @param biliJct   当前用户绑定的 bili_jct
+     * @param buvid3    当前用户绑定的 buvid3
      * @param maxComments 最大评论获取数量（默认20000）
      * @return 是否提交成功
      */
-    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, Integer maxComments) {
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3, Integer maxComments) {
         String url = pythonServiceUrl + "/api/analysis/video";
 
         try {
@@ -65,6 +67,12 @@ public class PythonApiClient {
             requestBody.put("max_comments", maxComments != null ? maxComments : 20000);
             if (sessdata != null && !sessdata.trim().isEmpty()) {
                 requestBody.put("sessdata", sessdata);
+            }
+            if (biliJct != null && !biliJct.trim().isEmpty()) {
+                requestBody.put("bili_jct", biliJct);
+            }
+            if (buvid3 != null && !buvid3.trim().isEmpty()) {
+                requestBody.put("buvid3", buvid3);
             }
 
             HttpHeaders headers = createHeaders();
@@ -90,13 +98,13 @@ public class PythonApiClient {
     }
     
     /** 兼容旧调用：不传maxComments */
-    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata) {
-        return submitAnalysisTask(bvid, taskId, sessdata, 2000);
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3) {
+        return submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, 2000);
     }
 
     /** 兼容旧调用：不传sessdata（用于系统自动触发的监控任务） */
     public boolean submitAnalysisTask(String bvid, String taskId) {
-        return submitAnalysisTask(bvid, taskId, null);
+        return submitAnalysisTask(bvid, taskId, null, null, null);
     }
 
     /**
@@ -181,16 +189,34 @@ public class PythonApiClient {
      * @param pages 抓取页数
      * @return 抓取结果JSON
      */
-    public String fetchPopularVideos(int pages) {
+    public String fetchPopularVideos(int pages, String sessdata, String biliJct, String buvid3) {
         String url = pythonServiceUrl + "/api/popular/fetch?pages=" + pages;
         try {
-            HttpEntity<Void> request = new HttpEntity<>(createHeaders());
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("pages", pages);
+            if (sessdata != null && !sessdata.trim().isEmpty()) {
+                requestBody.put("sessdata", sessdata);
+            }
+            if (biliJct != null && !biliJct.trim().isEmpty()) {
+                requestBody.put("bili_jct", biliJct);
+            }
+            if (buvid3 != null && !buvid3.trim().isEmpty()) {
+                requestBody.put("buvid3", buvid3);
+            }
+
+            HttpHeaders headers = createHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
             return response.getBody();
         } catch (Exception e) {
             logger.error("Error fetching popular videos: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to fetch popular videos", e);
         }
+    }
+
+    public String fetchPopularVideos(int pages) {
+        return fetchPopularVideos(pages, null, null, null);
     }
 
     /**

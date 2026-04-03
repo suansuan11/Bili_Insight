@@ -22,6 +22,8 @@ class AnalyzeVideoRequest(BaseModel):
     bvid: str
     max_comments: int = 500
     sessdata: Optional[str] = None
+    bili_jct: Optional[str] = None
+    buvid3: Optional[str] = None
     task_id: Optional[str] = None  # Java 侧传来的 task_id；存在时直接使用，不再自行创建
 
 
@@ -125,7 +127,7 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
     logger.info(f"收到视频分析请求 - BVID: {request.bvid}, 最大评论数: {request.max_comments}")
     try:
         # 获取凭证（由 Java 后端从 DB 读取后传入，无则游客模式）
-        credential = make_credential(request.sessdata)
+        credential = make_credential(request.sessdata, request.bili_jct, request.buvid3)
         logger.debug(f"凭证创建完成 - 使用{'用户凭证' if request.sessdata else '游客模式'}")
 
         # 若 Java 侧已创建任务记录并传来 task_id，直接使用；否则自行创建

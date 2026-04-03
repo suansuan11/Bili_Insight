@@ -111,7 +111,7 @@ import type { VideoInfo } from '@/types/video'
 import { View, ChatLineRound, Pointer, Coin, Star, Share, Comment, Refresh } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import request from '@/utils/request'
 
 const router = useRouter()
 const videos = ref<VideoInfo[]>([])
@@ -156,13 +156,7 @@ onMounted(fetchPopularVideos)
 const refreshVideos = async () => {
   isRefreshing.value = true
   try {
-    const userStr = localStorage.getItem('user')
-    const sessdata = userStr ? JSON.parse(userStr).biliSessdata : null
-
-    const response = await axios.post('http://localhost:8001/api/popular/fetch',
-      { pages: 8, sessdata },
-      { headers: { 'X-API-Key': 'bili_insight_dev_api_key_2026' } }
-    )
+    await request.post('/insight/popular-videos/fetch?pages=8')
     ElMessage.success('爬取任务已启动，请稍后刷新页面查看')
     setTimeout(() => fetchPopularVideos(), 15000)
   } catch (err: any) {

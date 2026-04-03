@@ -16,6 +16,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 @Component
@@ -38,20 +39,33 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 username = jwtUtil.extractUsername(token);
                 role = jwtUtil.extractClaim(token, claims -> claims.get("role", String.class));
             } catch (Exception e) {
-                // Token解析失败，跳过认证，交由Spring Security处理
+                writeUnauthorized(response, e.getMessage());
+                return;
             }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtUtil.validateToken(token, username)) {
-                String authority = (role != null) ? role : "ROLE_USER";
-                UserDetails userDetails = new User(username, "", Collections.singletonList(new SimpleGrantedAuthority(authority)));
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            try {
+                if (jwtUtil.validateToken(token, username)) {
+                    String authority = (role != null) ? role : "ROLE_USER";
+                    UserDetails userDetails = new User(username, "", Collections.singletonList(new SimpleGrantedAuthority(authority)));
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception e) {
+                writeUnauthorized(response, e.getMessage());
+                return;
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":401,\"message\":\"" + (message == null ? "Token无效" : message) + "\"}");
     }
 }
