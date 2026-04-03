@@ -5,7 +5,9 @@ from datetime import datetime
 
 from bilibili_api import video, hot, comment, Credential, sync
 from bilibili_api.comment import CommentResourceType
+from bilibili_api.exceptions.NetworkException import NetworkException
 from app.utils.logger import logger
+from .crawler_exceptions import CommentFetchException, BilibiliRiskControlException
 
 
 class BilibiliService:
@@ -19,6 +21,109 @@ class BilibiliService:
             credential: B站登录凭证（可选）
         """
         self.credential = credential
+
+    @staticmethod
+    def _extract_status_code(exc: Exception) -> Optional[int]:
+        if isinstance(exc, NetworkException):
+            code = getattr(exc, "code", None)
+            if isinstance(code, int):
+                return code
+
+        text = str(exc)
+        marker = "状态码："
+        if marker in text:
+            suffix = text.split(marker, 1)[1].strip()
+            digits = "".join(ch for ch in suffix[:4] if ch.isdigit())
+            if digits:
+                try:
+                    return int(digits)
+                except ValueError:
+                    return None
+        return None
+
+    def _is_risk_control_error(self, exc: Exception) -> bool:
+        code = self._extract_status_code(exc)
+        text = str(exc)
+        return code == 412 or "security control policy" in text.lower() or "风控" in text
+
+    @staticmethod
+    def _is_retryable_network_error(exc: Exception) -> bool:
+        text = str(exc).lower()
+        transient_keywords = ["timeout", "tempor", "connection reset", "server disconnected"]
+        return any(keyword in text for keyword in transient_keywords)
+
+    async def _get_video_aid(self, bvid: str) -> int:
+        v = video.Video(bvid=bvid, credential=self.credential)
+        info = await v.get_info()
+        aid = info["aid"]
+        logger.debug(f"视频AID: {aid}")
+        return aid
+
+    async def _fetch_comment_page(self, aid: int, offset: str = "", retries: int = 3) -> Dict:
+        last_exc: Optional[Exception] = None
+
+        for attempt in range(1, retries + 1):
+            try:
+                return await comment.get_comments_lazy(
+                    oid=aid,
+                    type_=CommentResourceType.VIDEO,
+                    offset=offset,
+                    credential=self.credential
+                )
+            except Exception as exc:
+                last_exc = exc
+                if self._is_risk_control_error(exc):
+                    if attempt < retries:
+                        delay = 1.2 * attempt
+                        logger.warning("评论接口触发风控(尝试 %s/%s)，%.1fs 后重试", attempt, retries, delay)
+                        await asyncio.sleep(delay)
+                        continue
+                    raise BilibiliRiskControlException(
+                        "B站评论接口触发风控(412)，请稍后重试或重新绑定更稳定的浏览器态凭证",
+                        status_code=self._extract_status_code(exc)
+                    ) from exc
+
+                if attempt < retries and self._is_retryable_network_error(exc):
+                    delay = 0.8 * attempt
+                    logger.warning("评论接口临时错误(尝试 %s/%s)，%.1fs 后重试: %s", attempt, retries, delay, exc)
+                    await asyncio.sleep(delay)
+                    continue
+
+                raise CommentFetchException(f"获取评论失败: {exc}") from exc
+
+        if last_exc is not None:
+            raise CommentFetchException(f"获取评论失败: {last_exc}") from last_exc
+        raise CommentFetchException("获取评论失败: 未知错误")
+
+    async def probe_comment_access(self, bvid: str) -> Dict:
+        """
+        轻量探测评论接口可用性。
+        仅请求第一页评论，用于提交任务前预检。
+        """
+        logger.info(f"开始探测评论接口可用性 - BVID: {bvid}")
+        try:
+            aid = await self._get_video_aid(bvid)
+            result = await self._fetch_comment_page(aid=aid, offset="", retries=2)
+            replies = result.get("replies") or []
+            return {
+                "available": True,
+                "risk_controlled": False,
+                "message": "评论接口可用",
+                "sample_count": len(replies)
+            }
+        except BilibiliRiskControlException as exc:
+            return {
+                "available": False,
+                "risk_controlled": True,
+                "message": str(exc)
+            }
+        except Exception as exc:
+            logger.warning(f"评论接口探测失败 - BVID: {bvid}: {exc}")
+            return {
+                "available": False,
+                "risk_controlled": False,
+                "message": f"评论接口探测失败: {exc}"
+            }
 
     async def get_video_info(self, bvid: str) -> Optional[Dict]:
         """
@@ -117,65 +222,48 @@ class BilibiliService:
             评论列表
         """
         logger.info(f"开始获取评论 - BVID: {bvid}, 最大数量: {max_count}")
-        try:
-            # 先获取视频aid
-            v = video.Video(bvid=bvid, credential=self.credential)
-            info = await v.get_info()
-            aid = info['aid']
-            logger.debug(f"视频AID: {aid}")
+        # 先获取视频aid
+        aid = await self._get_video_aid(bvid)
 
-            all_comments = []
-            page = 1
-            offset = ""
+        all_comments = []
+        page = 1
+        offset = ""
 
-            while len(all_comments) < max_count:
-                logger.debug(f"获取评论第{page}页 - 当前已获取: {len(all_comments)}条")
-                # 使用新接口get_comments_lazy（传递凭证）
-                result = await comment.get_comments_lazy(
-                    oid=aid,
-                    type_=CommentResourceType.VIDEO,
-                    offset=offset,
-                    credential=self.credential  # 关键：传递凭证
-                )
+        while len(all_comments) < max_count:
+            logger.debug(f"获取评论第{page}页 - 当前已获取: {len(all_comments)}条")
+            result = await self._fetch_comment_page(aid=aid, offset=offset, retries=3)
 
-                replies = result.get('replies')
-                if not replies:
-                    logger.debug(f"第{page}页无更多评论，停止获取")
+            replies = result.get('replies')
+            if not replies:
+                logger.debug(f"第{page}页无更多评论，停止获取")
+                break
+
+            # 解析评论
+            for reply in replies:
+                comment_data = {
+                    'author': reply['member']['uname'],
+                    'gender': reply['member']['sex'],
+                    'content': reply['content']['message'],
+                    'like': int(reply.get('like', 0)),
+                    'reply_id': reply.get('rpid'),
+                    'create_time': reply.get('ctime', 0)
+                }
+                all_comments.append(comment_data)
+
+                if len(all_comments) >= max_count:
                     break
 
-                # 解析评论
-                for reply in replies:
-                    comment_data = {
-                        'author': reply['member']['uname'],
-                        'gender': reply['member']['sex'],
-                        'content': reply['content']['message'],
-                        'like': int(reply.get('like', 0)),  # Ensure int
-                        'reply_id': reply.get('rpid'),
-                        'create_time': reply.get('ctime', 0)
-                    }
-                    all_comments.append(comment_data)
+            next_offset = result.get('cursor', {}).get('pagination_reply', {}).get('next_offset')
+            if not next_offset:
+                logger.debug("已到最后一页，停止获取")
+                break
 
-                    if len(all_comments) >= max_count:
-                        break
+            offset = next_offset
+            page += 1
+            await asyncio.sleep(0.8)
 
-                # 获取下一页offset
-                next_offset = result.get('cursor', {}).get('pagination_reply', {}).get('next_offset')
-                if not next_offset:
-                    logger.debug(f"已到最后一页，停止获取")
-                    break
-
-                offset = next_offset
-                page += 1
-
-                # 避免请求过快
-                await asyncio.sleep(0.3)
-
-            logger.info(f"评论获取完成 - 共获取 {len(all_comments)} 条评论")
-            return all_comments
-
-        except Exception as e:
-            logger.error(f"获取评论失败 - BVID: {bvid}: {e}", exc_info=True)
-            return []
+        logger.info(f"评论获取完成 - 共获取 {len(all_comments)} 条评论")
+        return all_comments
 
     async def get_danmakus(self, bvid: str) -> List[Dict]:
         """

@@ -102,6 +102,51 @@ public class PythonApiClient {
         return submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, 2000);
     }
 
+    /**
+     * 提交前探测评论接口可用性，识别 B站 412 风控。
+     */
+    public Map<String, Object> probeCommentAccess(String bvid, String sessdata, String biliJct, String buvid3) {
+        String url = pythonServiceUrl + "/api/analysis/probe-comment";
+        try {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("bvid", bvid);
+            if (sessdata != null && !sessdata.trim().isEmpty()) {
+                requestBody.put("sessdata", sessdata);
+            }
+            if (biliJct != null && !biliJct.trim().isEmpty()) {
+                requestBody.put("bili_jct", biliJct);
+            }
+            if (buvid3 != null && !buvid3.trim().isEmpty()) {
+                requestBody.put("buvid3", buvid3);
+            }
+
+            HttpHeaders headers = createHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw new IllegalStateException("评论接口探测返回异常");
+            }
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+            Map<String, Object> result = new HashMap<>();
+            result.put("available", root.path("available").asBoolean(false));
+            result.put("riskControlled", root.path("risk_controlled").asBoolean(false));
+            result.put("message", root.path("message").asText(""));
+            result.put("sampleCount", root.path("sample_count").asInt(0));
+            return result;
+        } catch (Exception e) {
+            logger.warn("Comment access probe failed for {}: {}", bvid, e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("available", false);
+            result.put("riskControlled", false);
+            result.put("message", "评论接口探测失败: " + e.getMessage());
+            result.put("error", true);
+            return result;
+        }
+    }
+    
     /** 兼容旧调用：不传sessdata（用于系统自动触发的监控任务） */
     public boolean submitAnalysisTask(String bvid, String taskId) {
         return submitAnalysisTask(bvid, taskId, null, null, null);

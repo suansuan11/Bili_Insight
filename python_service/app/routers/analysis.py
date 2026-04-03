@@ -53,6 +53,13 @@ class TaskResultResponse(BaseModel):
     aspects: dict
 
 
+class CommentProbeResponse(BaseModel):
+    available: bool
+    risk_controlled: bool
+    message: str
+    sample_count: int = 0
+
+
 # ====== 后台任务函数 ======
 
 async def analyze_video_background(
@@ -158,6 +165,27 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
     except Exception as e:
         logger.error(f"创建分析任务失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
+
+
+@router.post("/probe-comment", response_model=CommentProbeResponse)
+async def probe_comment_access(request: AnalyzeVideoRequest):
+    """
+    轻量探测评论接口是否可用。
+    用于 Java 提交任务前判断当前账号是否已触发 B站评论风控。
+    """
+    try:
+        credential = make_credential(request.sessdata, request.bili_jct, request.buvid3)
+        bili_service = BilibiliService(credential=credential)
+        result = await bili_service.probe_comment_access(request.bvid)
+        return CommentProbeResponse(
+            available=bool(result.get("available")),
+            risk_controlled=bool(result.get("risk_controlled")),
+            message=str(result.get("message") or ""),
+            sample_count=int(result.get("sample_count") or 0)
+        )
+    except Exception as e:
+        logger.error(f"评论接口探测失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"评论接口探测失败: {str(e)}")
 
 
 @router.get("/status/{task_id}", response_model=TaskStatusResponse)

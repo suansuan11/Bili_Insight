@@ -101,6 +101,7 @@ class VideoStorageService:
                 sql = """
                     UPDATE analysis_task
                     SET status = 'FAILED', error_message = %s,
+                        current_step = '分析失败',
                         completed_at = NOW()
                     WHERE task_id = %s
                 """

@@ -10,6 +10,7 @@ import com.ecut.bili_insight.entity.SentimentTimeline;
 import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
 import com.ecut.bili_insight.service.BiliCredentialService;
+import com.ecut.bili_insight.service.PythonApiClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ public class AnalysisController {
 
     @Autowired
     private BiliCredentialService biliCredentialService;
+
+    @Autowired
+    private PythonApiClient pythonApiClient;
 
     /** 获取当前登录用户（含B站凭证） */
     private User getCurrentUser() {
@@ -81,6 +85,21 @@ public class AnalysisController {
             BiliCredentialService.CredentialStatus credentialStatus = biliCredentialService.checkCredential(currentUser);
             if (credentialStatus.hasCredential() && credentialStatus.isExpired()) {
                 return Result.failed(ResultCode.FAILED, "B站凭证已过期，请前往设置页重新扫码绑定");
+            }
+
+            Map<String, Object> probeResult = pythonApiClient.probeCommentAccess(
+                    bvid,
+                    currentUser.getBiliSessdata(),
+                    currentUser.getBiliJct(),
+                    currentUser.getBiliBuvid3()
+            );
+            boolean riskControlled = Boolean.TRUE.equals(probeResult.get("riskControlled"));
+            if (riskControlled) {
+                String probeMessage = String.valueOf(probeResult.getOrDefault(
+                        "message",
+                        "B站评论接口当前触发风控，请稍后重试或重新绑定更稳定的浏览器态账号"
+                ));
+                return Result.failed(ResultCode.FAILED, probeMessage);
             }
 
             // 提交任务，携带当前用户的B站凭证（若已绑定）
