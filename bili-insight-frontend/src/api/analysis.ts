@@ -14,7 +14,7 @@ export const submitAnalysis = (bvid: string): Promise<ApiResponse<{ task_id: num
     })
 }
 
-export const getTaskStatus = (taskId: number): Promise<ApiResponse<AnalysisTask>> => {
+export const getTaskStatus = (taskId: string): Promise<ApiResponse<AnalysisTask>> => {
     return request.get(`/insight/analysis/status/${taskId}`)
 }
 
@@ -24,7 +24,7 @@ export const getTaskByBvid = (bvid: string): Promise<ApiResponse<AnalysisTask>> 
     })
 }
 
-export const getAnalysisResult = (taskId: number): Promise<ApiResponse<AnalysisResult>> => {
+export const getAnalysisResult = (taskId: string): Promise<ApiResponse<AnalysisResult>> => {
     return request.get(`/insight/analysis/result/${taskId}`)
 }
 
@@ -40,7 +40,7 @@ export const getDanmakus = (taskId: number, sentiment?: string): Promise<ApiResp
     })
 }
 
-export const getTimeline = (taskId: number): Promise<ApiResponse<SentimentTimeline>> => {
+export const getTimeline = (taskId: string): Promise<ApiResponse<SentimentTimeline>> => {
     return request.get(`/insight/analysis/timeline/${taskId}`)
 }
 

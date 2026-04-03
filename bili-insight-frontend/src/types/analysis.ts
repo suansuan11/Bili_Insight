@@ -1,9 +1,9 @@
 export interface AnalysisTask {
-    id: number
+    id: string          // backend returns String taskId mapped via @JsonProperty("id")
     bvid: string
-    title: string
-    coverUrl: string
-    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+    title?: string
+    coverUrl?: string
+    status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
     progress?: number
     currentStep?: string
     errorMessage?: string

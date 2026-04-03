@@ -84,7 +84,7 @@
         </h2>
         <el-radio-group v-model="statusFilter" size="default">
           <el-radio-button value="ALL">全部</el-radio-button>
-          <el-radio-button value="PROCESSING">进行中</el-radio-button>
+          <el-radio-button value="RUNNING">进行中</el-radio-button>
           <el-radio-button value="COMPLETED">已完成</el-radio-button>
           <el-radio-button value="FAILED">失败</el-radio-button>
         </el-radio-group>
@@ -124,17 +124,20 @@
             </el-tag>
           </div>
 
-          <el-progress
-            v-if="task.status === 'PROCESSING'"
-            :percentage="task.progress || 0"
-            :stroke-width="6"
-            :color="'#409eff'"
-            class="task-progress"
-          />
-
-          <div v-if="task.currentStep" class="task-step">
-            <el-icon :size="12"><Loading /></el-icon>
-            <span>{{ task.currentStep }}</span>
+          <div v-if="task.status === 'RUNNING' || task.status === 'PENDING'" class="task-progress-section">
+            <div class="task-step">
+              <el-icon class="is-loading" :size="12"><Loading /></el-icon>
+              <span>{{ task.currentStep || (task.status === 'PENDING' ? '等待处理中...' : '正在处理中...') }}</span>
+            </div>
+            <el-progress
+              :percentage="task.progress || 0"
+              :stroke-width="6"
+              :color="'#409eff'"
+              :striped="true"
+              :striped-flow="true"
+              :duration="10"
+              class="task-progress"
+            />
           </div>
 
           <div class="task-card-footer">
@@ -182,7 +185,7 @@ const taskStats = computed(() => {
   return {
     total: all.length,
     completed: all.filter(t => t.status === 'COMPLETED').length,
-    running: all.filter(t => t.status === 'PROCESSING' || t.status === 'PENDING').length,
+    running: all.filter(t => t.status === 'RUNNING' || t.status === 'PENDING').length,
     failed: all.filter(t => t.status === 'FAILED').length
   }
 })
@@ -254,12 +257,13 @@ const handleTaskClick = (task: AnalysisTask) => {
   }
 }
 
-// Poll running tasks for status updates
 const startPolling = () => {
   if (pollTimer) return
-  pollTimer = setInterval(async () => {
+  let failCount = 0
+
+  const poll = async () => {
     const runningTasks = tasks.value.filter(
-      t => t.status === 'PROCESSING' || t.status === 'PENDING'
+      t => t.status === 'RUNNING' || t.status === 'PENDING'
     )
     if (runningTasks.length === 0) {
       stopPolling()
@@ -268,17 +272,22 @@ const startPolling = () => {
     for (const task of runningTasks) {
       try {
         const response = await getTaskStatus(task.id)
-        if (response.code === 0) {
+        if (response.code === 0 && response.data) {
           const idx = tasks.value.findIndex(t => t.id === task.id)
           if (idx !== -1) {
-            tasks.value[idx] = response.data
+            Object.assign(tasks.value[idx], response.data)
           }
+          failCount = 0
         }
       } catch {
-        // Silently ignore polling errors
+        failCount++
+        if (failCount >= 5) stopPolling()
       }
     }
-  }, 5000)
+  }
+
+  poll()
+  pollTimer = setInterval(poll, 3000)
 }
 
 const stopPolling = () => {
@@ -291,7 +300,7 @@ const stopPolling = () => {
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
     PENDING: 'info',
-    PROCESSING: '',
+    RUNNING: '',
     COMPLETED: 'success',
     FAILED: 'danger'
   }
@@ -301,7 +310,7 @@ const getStatusType = (status: string) => {
 const getStatusText = (status: string) => {
   const texts: Record<string, string> = {
     PENDING: '等待中',
-    PROCESSING: '进行中',
+    RUNNING: '进行中',
     COMPLETED: '已完成',
     FAILED: '失败'
   }
@@ -324,7 +333,7 @@ onMounted(() => {
   fetchTasks().then(() => {
     // Start polling if there are running tasks
     const hasRunning = tasks.value.some(
-      t => t.status === 'PROCESSING' || t.status === 'PENDING'
+      t => t.status === 'RUNNING' || t.status === 'PENDING'
     )
     if (hasRunning) startPolling()
   })
