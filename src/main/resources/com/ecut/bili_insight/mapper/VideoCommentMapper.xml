@@ -54,6 +54,44 @@
         ORDER BY like_count DESC
     </select>
 
+    <sql id="CommentBaseSelect">
+        SELECT comment_id AS commentId, task_id AS taskId, bvid, username,
+               gender, content, normalized_content AS normalizedContent,
+               text_type AS textType,
+               like_count AS likeCount, reply_count AS replyCount,
+               publish_time AS publishTime, sentiment_score AS sentimentScore,
+               sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson,
+               aspect, aspect_details_json AS aspectDetailsJson
+        FROM video_comment
+    </sql>
+
+    <sql id="CommentFilterWhere">
+        <where>
+            task_id = #{taskId}
+            <if test="sentimentLabel != null and sentimentLabel != ''">
+                AND sentiment_label = #{sentimentLabel}
+            </if>
+            <if test="aspect != null and aspect != ''">
+                AND (
+                    aspect = #{aspect}
+                    OR JSON_SEARCH(aspect_details_json, 'one', #{aspect}, NULL, '$[*].aspect') IS NOT NULL
+                )
+            </if>
+        </where>
+    </sql>
+
+    <select id="findPageByTaskId" resultType="com.ecut.bili_insight.entity.VideoComment">
+        <include refid="CommentBaseSelect"/>
+        <include refid="CommentFilterWhere"/>
+        ORDER BY like_count DESC, comment_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
     <select id="findByTaskIdAndSentiment" resultType="com.ecut.bili_insight.entity.VideoComment">
         SELECT comment_id AS commentId, task_id AS taskId, bvid, username,
                gender, content, normalized_content AS normalizedContent,
@@ -96,6 +134,12 @@
 
     <select id="countByTaskId" resultType="int">
         SELECT COUNT(*) FROM video_comment WHERE task_id = #{taskId}
+    </select>
+
+    <select id="countByTaskIdWithFilters" resultType="int">
+        SELECT COUNT(*)
+        FROM video_comment
+        <include refid="CommentFilterWhere"/>
     </select>
 
     <select id="countByTaskIdAndSentiment" resultType="int">

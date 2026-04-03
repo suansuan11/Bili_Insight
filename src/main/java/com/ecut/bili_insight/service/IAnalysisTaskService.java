@@ -58,7 +58,7 @@ public interface IAnalysisTaskService {
      *
      * @param taskId 任务ID
      * @param userId 请求用户ID
-     * @return 包含评论、弹幕、时间轴的完整数据
+     * @return 包含任务概览、统计、时间轴的结果数据
      */
     Map<String, Object> getAnalysisResult(String taskId, Long userId);
 
@@ -66,7 +66,7 @@ public interface IAnalysisTaskService {
      * 获取完整的分析结果（无权限验证，内部使用）
      *
      * @param taskId 任务ID
-     * @return 包含评论、弹幕、时间轴的完整数据
+     * @return 包含任务概览、统计、时间轴的结果数据
      */
     Map<String, Object> getAnalysisResult(String taskId);
 
@@ -80,6 +80,8 @@ public interface IAnalysisTaskService {
      */
     List<VideoComment> getComments(String taskId, String sentimentLabel, String aspect);
 
+    Map<String, Object> getCommentsPage(String taskId, Long userId, String sentimentLabel, String aspect, int page, int size);
+
     /**
      * 获取视频弹幕列表
      * 
@@ -88,6 +90,8 @@ public interface IAnalysisTaskService {
      * @return 弹幕列表
      */
     List<VideoDanmaku> getDanmakus(String taskId, String sentimentLabel);
+
+    Map<String, Object> getDanmakusPage(String taskId, Long userId, String sentimentLabel, int page, int size);
 
     /**
      * 获取情绪时间轴数据

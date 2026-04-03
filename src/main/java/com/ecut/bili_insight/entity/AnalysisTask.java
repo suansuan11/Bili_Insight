@@ -26,6 +26,11 @@ public class AnalysisTask {
     private String bvid;
 
     /**
+     * 视频标题
+     */
+    private String title;
+
+    /**
      * 任务状态: PENDING/RUNNING/SUCCESS/FAILED
      */
     private String status;
@@ -49,6 +54,21 @@ public class AnalysisTask {
      * 当前步骤描述
      */
     private String currentStep;
+
+    /**
+     * 评论抓取最终模式: api/playwright/curl_cffi
+     */
+    private String commentFetchMode;
+
+    /**
+     * 评论抓取过程中是否触发过风控
+     */
+    private Boolean commentRiskControlled;
+
+    /**
+     * 评论抓取重试次数
+     */
+    private Integer commentFetchRetries;
 
     /**
      * 创建时间

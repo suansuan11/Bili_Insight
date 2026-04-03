@@ -147,7 +147,7 @@
             <div class="feedback-title-group">
                <span class="font-bold text-lg text-gray-800">详细反馈</span>
                <el-tag type="info" effect="plain" round class="font-medium px-3">
-                  {{ viewMode === 'comments' ? filteredComments.length : filteredDanmakus.length }} 条{{ viewMode === 'comments' ? '评论' : '弹幕' }}
+                  {{ currentFeedbackTotal }} 条{{ viewMode === 'comments' ? '评论' : '弹幕' }}
                </el-tag>
             </div>
             
@@ -177,7 +177,7 @@
         
         <!-- Comments List -->
         <div v-if="viewMode === 'comments'" class="comments-list" @scroll.passive="handleFeedbackScroll">
-          <div v-if="filteredComments.length > 0" class="comments-grid">
+          <div v-if="visibleComments.length > 0" class="comments-grid">
             <div v-for="comment in visibleComments" :key="comment.commentId" class="comment-card shadow-sm hover:shadow-md transition-all">
               <div class="flex mb-3 items-start gap-3">
                 <div class="comment-avatar">
@@ -231,7 +231,8 @@
               </div>
             </div>
             <div class="feedback-sentinel">
-              <span v-if="hasMoreComments">继续下滑加载更多评论</span>
+              <span v-if="isLoadingComments">正在加载更多评论...</span>
+              <span v-else-if="hasMoreComments">继续下滑加载更多评论</span>
               <span v-else>已经展示全部评论</span>
             </div>
           </div>
@@ -240,7 +241,7 @@
 
         <!-- Danmaku List -->
         <div v-else class="comments-list" @scroll.passive="handleFeedbackScroll">
-           <div v-if="filteredDanmakus.length > 0">
+           <div v-if="visibleDanmakus.length > 0">
               <div v-for="dm in visibleDanmakus" :key="dm.danmakuId" class="comment-item list-dm flex justify-between items-center">
                  <div class="flex items-center gap-3 flex-1 min-w-0">
                     <el-tag size="small" type="info" effect="dark" class="font-mono dm-time-tag">{{ formatTime(dm.dmTime) }}</el-tag>
@@ -257,7 +258,8 @@
                  </div>
               </div>
               <div class="feedback-sentinel">
-                <span v-if="hasMoreDanmakus">继续下滑加载更多弹幕</span>
+                <span v-if="isLoadingDanmakus">正在加载更多弹幕...</span>
+                <span v-else-if="hasMoreDanmakus">继续下滑加载更多弹幕</span>
                 <span v-else>已经展示全部弹幕</span>
               </div>
            </div>
@@ -273,7 +275,7 @@ import { ref, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Loading, ChatDotRound, ChatLineRound, CircleCheck, CircleClose, VideoPlay, Clock, TrendCharts, InfoFilled, Filter, PriceTag, Star } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getAnalysisResult } from '@/api/analysis'
+import { getAnalysisResult, getComments, getDanmakus } from '@/api/analysis'
 import type { AnalysisResult, VideoComment, VideoDanmaku } from '@/types/analysis'
 import * as echarts from 'echarts'
 import { useDarkMode } from '@/composables/useDarkMode'
@@ -296,8 +298,16 @@ let resizeHandler: (() => void) | null = null
 const viewMode = ref<'comments' | 'danmaku'>('comments')
 const commentFilter = ref('')
 const aspectFilter = ref('')
-const visibleCommentCount = ref(20)
-const visibleDanmakuCount = ref(50)
+const comments = ref<VideoComment[]>([])
+const danmakus = ref<VideoDanmaku[]>([])
+const commentsPage = ref(1)
+const danmakusPage = ref(1)
+const commentsTotal = ref(0)
+const danmakusTotal = ref(0)
+const hasMoreComments = ref(true)
+const hasMoreDanmakus = ref(true)
+const isLoadingComments = ref(false)
+const isLoadingDanmakus = ref(false)
 const playerUrl = ref('')
 const COMMENT_BATCH_SIZE = 20
 const DANMAKU_BATCH_SIZE = 50
@@ -311,13 +321,13 @@ type AspectDetail = {
 
 // Computed Properties
 const availableAspects = computed(() => {
-   if (!result.value?.comments) return []
    const aspects = new Set<string>()
-   result.value.comments.forEach(c => {
+   topAspects.value.forEach(item => aspects.add(item.aspect))
+   comments.value.forEach(c => {
       if (c.aspect) aspects.add(c.aspect)
       parseAspectDetails(c.aspectDetailsJson).forEach(detail => aspects.add(detail.aspect))
    })
-   return Array.from(aspects)
+   return Array.from(aspects).sort()
 })
 
 const topAspects = computed(() => {
@@ -345,9 +355,9 @@ const topAspects = computed(() => {
   }
   
   // 降级方案：从评论中统计
-  if (!result.value?.comments) return []
+  if (!comments.value.length) return []
   const counts: Record<string, number> = {}
-  result.value.comments.forEach(c => {
+  comments.value.forEach(c => {
     if (c.aspect) {
       counts[c.aspect] = (counts[c.aspect] || 0) + 1
     }
@@ -370,32 +380,78 @@ const hasTimelineData = computed(() => {
   }
 })
 
-const filteredComments = computed<VideoComment[]>(() => {
-  if (!result.value?.comments) return []
-  return result.value.comments.filter(c => {
-     const matchSentiment = !commentFilter.value || c.sentimentLabel === commentFilter.value
-     const matchAspect = !aspectFilter.value || c.aspect === aspectFilter.value || parseAspectDetails(c.aspectDetailsJson).some(detail => detail.aspect === aspectFilter.value)
-     return matchSentiment && matchAspect
-  })
-})
-
-const filteredDanmakus = computed<VideoDanmaku[]>(() => {
-   if (!result.value?.danmakus) return []
-   return result.value.danmakus.filter(d => {
-      const matchSentiment = !commentFilter.value || d.sentimentLabel === commentFilter.value
-      return matchSentiment
-   })
-})
-
-const visibleComments = computed(() => filteredComments.value.slice(0, visibleCommentCount.value))
-const visibleDanmakus = computed(() => filteredDanmakus.value.slice(0, visibleDanmakuCount.value))
-const hasMoreComments = computed(() => filteredComments.value.length > visibleCommentCount.value)
-const hasMoreDanmakus = computed(() => filteredDanmakus.value.length > visibleDanmakuCount.value)
+const visibleComments = computed(() => comments.value)
+const visibleDanmakus = computed(() => danmakus.value)
+const currentFeedbackTotal = computed(() => viewMode.value === 'comments' ? commentsTotal.value : danmakusTotal.value)
 
 // Methods
+const taskId = computed(() => route.params.id as string)
+
+const fetchCommentsPage = async (reset = false) => {
+  if (!taskId.value || isLoadingComments.value) return
+  isLoadingComments.value = true
+  try {
+    const targetPage = reset ? 1 : commentsPage.value
+    const response = await getComments(taskId.value, targetPage, COMMENT_BATCH_SIZE, commentFilter.value || undefined, aspectFilter.value || undefined)
+    if (response.code === 0) {
+      const payload = response.data
+      commentsTotal.value = payload.total
+      hasMoreComments.value = payload.hasMore
+      commentsPage.value = payload.page + 1
+      comments.value = reset ? payload.items : comments.value.concat(payload.items)
+    } else {
+      ElMessage.error(response.message || '加载评论失败')
+    }
+  } catch (err: any) {
+    console.error('Failed to fetch comments page:', err)
+    ElMessage.error(err.message || '加载评论失败')
+  } finally {
+    isLoadingComments.value = false
+  }
+}
+
+const fetchDanmakusPage = async (reset = false) => {
+  if (!taskId.value || isLoadingDanmakus.value) return
+  isLoadingDanmakus.value = true
+  try {
+    const targetPage = reset ? 1 : danmakusPage.value
+    const response = await getDanmakus(taskId.value, targetPage, DANMAKU_BATCH_SIZE, commentFilter.value || undefined)
+    if (response.code === 0) {
+      const payload = response.data
+      danmakusTotal.value = payload.total
+      hasMoreDanmakus.value = payload.hasMore
+      danmakusPage.value = payload.page + 1
+      danmakus.value = reset ? payload.items : danmakus.value.concat(payload.items)
+    } else {
+      ElMessage.error(response.message || '加载弹幕失败')
+    }
+  } catch (err: any) {
+    console.error('Failed to fetch danmakus page:', err)
+    ElMessage.error(err.message || '加载弹幕失败')
+  } finally {
+    isLoadingDanmakus.value = false
+  }
+}
+
+const resetFeedbackList = async () => {
+  comments.value = []
+  danmakus.value = []
+  commentsPage.value = 1
+  danmakusPage.value = 1
+  hasMoreComments.value = true
+  hasMoreDanmakus.value = true
+  commentsTotal.value = 0
+  danmakusTotal.value = 0
+
+  if (viewMode.value === 'comments') {
+    await fetchCommentsPage(true)
+  } else {
+    await fetchDanmakusPage(true)
+  }
+}
+
 const fetchAnalysisResult = async () => {
-  const taskId = route.params.id as string
-  if (!taskId) {
+  if (!taskId.value) {
     error.value = '无效的任务ID'
     return
   }
@@ -403,9 +459,11 @@ const fetchAnalysisResult = async () => {
   isLoading.value = true
   error.value = null
   try {
-    const response = await getAnalysisResult(taskId as any)
+    const response = await getAnalysisResult(taskId.value)
     if (response.code === 0) {
       result.value = response.data as any
+      commentsTotal.value = result.value?.comment_count || 0
+      danmakusTotal.value = result.value?.danmaku_count || 0
       
       // Initialize Player URL
       if (result.value?.task?.bvid) {
@@ -419,6 +477,8 @@ const fetchAnalysisResult = async () => {
         renderChart()
         renderAspectChart()
       }, 200)
+
+      await resetFeedbackList()
     } else {
       error.value = response.message || '加载失败'
     }
@@ -766,14 +826,14 @@ const deriveIntensity = (score?: number) => {
 }
 
 const loadMoreComments = () => {
-  if (hasMoreComments.value) {
-    visibleCommentCount.value += COMMENT_BATCH_SIZE
+  if (hasMoreComments.value && !isLoadingComments.value) {
+    fetchCommentsPage()
   }
 }
 
 const loadMoreDanmakus = () => {
-  if (hasMoreDanmakus.value) {
-    visibleDanmakuCount.value += DANMAKU_BATCH_SIZE
+  if (hasMoreDanmakus.value && !isLoadingDanmakus.value) {
+    fetchDanmakusPage()
   }
 }
 
@@ -790,13 +850,11 @@ const handleFeedbackScroll = (event: Event) => {
 }
 
 watch([commentFilter, aspectFilter], () => {
-  visibleCommentCount.value = COMMENT_BATCH_SIZE
-  visibleDanmakuCount.value = DANMAKU_BATCH_SIZE
+  resetFeedbackList()
 })
 
 watch(viewMode, () => {
-  visibleCommentCount.value = COMMENT_BATCH_SIZE
-  visibleDanmakuCount.value = DANMAKU_BATCH_SIZE
+  resetFeedbackList()
 })
 
 onMounted(() => {

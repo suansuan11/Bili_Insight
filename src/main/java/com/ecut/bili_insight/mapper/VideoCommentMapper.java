@@ -25,6 +25,12 @@ public interface VideoCommentMapper {
      */
     List<VideoComment> findByTaskId(@Param("taskId") String taskId);
 
+    List<VideoComment> findPageByTaskId(@Param("taskId") String taskId,
+                                        @Param("sentimentLabel") String sentimentLabel,
+                                        @Param("aspect") String aspect,
+                                        @Param("offset") int offset,
+                                        @Param("limit") int limit);
+
     /**
      * 根据任务ID和情感标签筛选评论
      * @param taskId 任务ID
@@ -49,6 +55,10 @@ public interface VideoCommentMapper {
      * @return 评论总数
      */
     int countByTaskId(@Param("taskId") String taskId);
+
+    int countByTaskIdWithFilters(@Param("taskId") String taskId,
+                                 @Param("sentimentLabel") String sentimentLabel,
+                                 @Param("aspect") String aspect);
 
     /**
      * 统计任务指定情感的评论数

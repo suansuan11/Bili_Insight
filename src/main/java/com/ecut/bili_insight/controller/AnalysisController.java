@@ -198,10 +198,10 @@ public class AnalysisController {
     }
 
     /**
-     * 获取完整的分析结果
+     * 获取分析结果概览
      * 
      * @param taskId 任务ID
-     * @return 包含评论、弹幕、时间轴的完整数据
+     * @return 包含任务信息、统计、时间轴的概览数据
      */
     @GetMapping("/result/{taskId}")
     public Result<Map<String, Object>> getAnalysisResult(@PathVariable String taskId) {
@@ -231,18 +231,22 @@ public class AnalysisController {
     }
 
     /**
-     * 获取评论列表
+     * 获取评论列表（分页）
      * 
      * @param taskId    任务ID
      * @param sentiment 情感标签(可选: POSITIVE/NEGATIVE/NEUTRAL)
      * @param aspect    切面(可选: 外观/性能/续航等)
-     * @return 评论列表
+     * @param page      页码，从1开始
+     * @param size      每页大小
+     * @return 分页评论列表
      */
     @GetMapping("/comments/{taskId}")
-    public Result<List<VideoComment>> getComments(
+    public Result<Map<String, Object>> getComments(
             @PathVariable String taskId,
             @RequestParam(required = false) String sentiment,
-            @RequestParam(required = false) String aspect) {
+            @RequestParam(required = false) String aspect,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
         logger.debug("Fetching comments for task {}: sentiment={}, aspect={}", taskId, sentiment, aspect);
 
@@ -257,9 +261,24 @@ public class AnalysisController {
                 return Result.failed(ResultCode.FAILED, "无效的切面参数");
             }
 
-            List<VideoComment> comments = analysisTaskService.getComments(taskId, sentiment, aspect);
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return Result.failed(ResultCode.UNAUTHORIZED, "用户未登录");
+            }
+
+            Map<String, Object> comments = analysisTaskService.getCommentsPage(
+                    taskId,
+                    currentUser.getId(),
+                    sentiment,
+                    aspect,
+                    page,
+                    size
+            );
             return Result.success(comments);
 
+        } catch (RuntimeException e) {
+            logger.error("Failed to get comments for task ID: {}", taskId, e);
+            return Result.failed(ResultCode.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
             logger.error("Failed to get comments for task ID: {}", taskId, e);
             return Result.failed(ResultCode.FAILED, "获取评论失败");
@@ -267,23 +286,41 @@ public class AnalysisController {
     }
 
     /**
-     * 获取弹幕列表
+     * 获取弹幕列表（分页）
      * 
      * @param taskId    任务ID
      * @param sentiment 情感标签(可选: POSITIVE/NEGATIVE/NEUTRAL)
-     * @return 弹幕列表
+     * @param page      页码，从1开始
+     * @param size      每页大小
+     * @return 分页弹幕列表
      */
     @GetMapping("/danmakus/{taskId}")
-    public Result<List<VideoDanmaku>> getDanmakus(
+    public Result<Map<String, Object>> getDanmakus(
             @PathVariable String taskId,
-            @RequestParam(required = false) String sentiment) {
+            @RequestParam(required = false) String sentiment,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "50") int size) {
 
         logger.debug("Fetching danmakus for task {}: sentiment={}", taskId, sentiment);
 
         try {
-            List<VideoDanmaku> danmakus = analysisTaskService.getDanmakus(taskId, sentiment);
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return Result.failed(ResultCode.UNAUTHORIZED, "用户未登录");
+            }
+
+            Map<String, Object> danmakus = analysisTaskService.getDanmakusPage(
+                    taskId,
+                    currentUser.getId(),
+                    sentiment,
+                    page,
+                    size
+            );
             return Result.success(danmakus);
 
+        } catch (RuntimeException e) {
+            logger.error("Failed to get danmakus for task ID: {}", taskId, e);
+            return Result.failed(ResultCode.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
             logger.error("Failed to get danmakus for task ID: {}", taskId, e);
             return Result.failed(ResultCode.FAILED, "获取弹幕失败: " + e.getMessage());

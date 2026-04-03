@@ -70,8 +70,11 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         task.setBvid(bvid);
         task.setUserId(userId);
         task.setStatus("PENDING");
+        task.setTaskType("FULL");
         task.setProgress(0);
         task.setCurrentStep("Task submitted");
+        task.setCommentRiskControlled(Boolean.FALSE);
+        task.setCommentFetchRetries(0);
         taskMapper.insert(task);
         return task.getTaskId();
     }
@@ -103,6 +106,17 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
             logger.error("Error in async Python service call: {}", e.getMessage(), e);
             taskMapper.updateStatus(taskId, "FAILED", e.getMessage());
         }
+    }
+
+    private AnalysisTask validateTaskAccess(String taskId, Long userId) {
+        AnalysisTask task = taskMapper.findById(taskId);
+        if (task == null) {
+            throw new RuntimeException("任务不存在");
+        }
+        if (userId != null && !task.getUserId().equals(userId)) {
+            throw new RuntimeException("无权访问该任务");
+        }
+        return task;
     }
 
     /**
@@ -137,19 +151,13 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      */
     @Override
     public Map<String, Object> getAnalysisResult(String taskId, Long userId) {
-        AnalysisTask task = taskMapper.findById(taskId);
-        if (task == null) {
-            throw new RuntimeException("任务不存在");
-        }
-        if (!task.getUserId().equals(userId)) {
-            throw new RuntimeException("无权访问该任务");
-        }
+        validateTaskAccess(taskId, userId);
         return getAnalysisResult(taskId);
     }
 
     /**
      * 获取完整的分析结果（无权限验证）
-     * 包含评论、弹幕、时间轴、统计数据
+     * 包含任务概览、时间轴、统计数据
      */
     @Override
     public Map<String, Object> getAnalysisResult(String taskId) {
@@ -166,22 +174,18 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
             return result;
         }
 
-        // 2. 评论数据
-        List<VideoComment> comments = commentMapper.findByTaskId(taskId);
-        result.put("comments", comments);
-        result.put("comment_count", commentMapper.countByTaskId(taskId));
+        // 2. 聚合计数
+        int commentCount = commentMapper.countByTaskId(taskId);
+        int danmakuCount = danmakuMapper.countByTaskId(taskId);
+        result.put("comment_count", commentCount);
+        result.put("danmaku_count", danmakuCount);
 
-        // 3. 弹幕数据
-        List<VideoDanmaku> danmakus = danmakuMapper.findByTaskId(taskId);
-        result.put("danmakus", danmakus);
-        result.put("danmaku_count", danmakuMapper.countByTaskId(taskId));
-
-        // 4. 情绪时间轴
+        // 3. 情绪时间轴
         SentimentTimeline timeline = timelineMapper.findByTaskId(taskId);
         result.put("timeline", timeline);
 
-        // 5. 统计数据
-        result.put("statistics", calculateStatistics(comments));
+        // 4. 统计数据
+        result.put("statistics", calculateStatistics(taskId));
 
         logger.info("Analysis result fetched successfully for task {}", taskId);
         return result;
@@ -204,6 +208,24 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         }
     }
 
+    @Override
+    public Map<String, Object> getCommentsPage(String taskId, Long userId, String sentimentLabel, String aspect, int page, int size) {
+        validateTaskAccess(taskId, userId);
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int offset = (safePage - 1) * safeSize;
+        int total = commentMapper.countByTaskIdWithFilters(taskId, sentimentLabel, aspect);
+        List<VideoComment> items = commentMapper.findPageByTaskId(taskId, sentimentLabel, aspect, offset, safeSize);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("items", items);
+        payload.put("page", safePage);
+        payload.put("size", safeSize);
+        payload.put("total", total);
+        payload.put("hasMore", offset + items.size() < total);
+        return payload;
+    }
+
     /**
      * 获取弹幕列表(支持筛选)
      */
@@ -218,6 +240,24 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         }
     }
 
+    @Override
+    public Map<String, Object> getDanmakusPage(String taskId, Long userId, String sentimentLabel, int page, int size) {
+        validateTaskAccess(taskId, userId);
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(1, Math.min(size, 200));
+        int offset = (safePage - 1) * safeSize;
+        int total = danmakuMapper.countByTaskIdWithFilters(taskId, sentimentLabel);
+        List<VideoDanmaku> items = danmakuMapper.findPageByTaskId(taskId, sentimentLabel, offset, safeSize);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("items", items);
+        payload.put("page", safePage);
+        payload.put("size", safeSize);
+        payload.put("total", total);
+        payload.put("hasMore", offset + items.size() < total);
+        return payload;
+    }
+
     /**
      * 获取情绪时间轴
      */
@@ -230,28 +270,22 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
     /**
      * 计算统计数据
      */
-    private Map<String, Object> calculateStatistics(List<VideoComment> comments) {
+    private Map<String, Object> calculateStatistics(String taskId) {
         Map<String, Object> stats = new HashMap<>();
-
-        if (comments == null || comments.isEmpty()) {
+        int total = commentMapper.countByTaskId(taskId);
+        if (total <= 0) {
             return stats;
         }
 
-        long positiveCount = comments.stream()
-                .filter(c -> "POSITIVE".equals(c.getSentimentLabel()))
-                .count();
-        long negativeCount = comments.stream()
-                .filter(c -> "NEGATIVE".equals(c.getSentimentLabel()))
-                .count();
-        long neutralCount = comments.stream()
-                .filter(c -> "NEUTRAL".equals(c.getSentimentLabel()))
-                .count();
+        long positiveCount = commentMapper.countByTaskIdAndSentiment(taskId, "POSITIVE");
+        long negativeCount = commentMapper.countByTaskIdAndSentiment(taskId, "NEGATIVE");
+        long neutralCount = commentMapper.countByTaskIdAndSentiment(taskId, "NEUTRAL");
 
         stats.put("positive_count", positiveCount);
         stats.put("negative_count", negativeCount);
         stats.put("neutral_count", neutralCount);
-        stats.put("positive_ratio", (double) positiveCount / comments.size());
-        stats.put("negative_ratio", (double) negativeCount / comments.size());
+        stats.put("positive_ratio", (double) positiveCount / total);
+        stats.put("negative_ratio", (double) negativeCount / total);
 
         return stats;
     }

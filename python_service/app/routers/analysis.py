@@ -81,6 +81,7 @@ async def analyze_video_background(
         video_info = await bili_service.get_video_info(bvid)
         if not video_info:
             raise Exception("获取视频信息失败")
+        await storage_service.update_task_video_info(task_id, video_info.get('title'))
         logger.info(f"[{task_id}] 视频信息获取成功 - 标题: {video_info.get('title', 'N/A')}")
 
         # 2. 获取评论
@@ -88,7 +89,9 @@ async def analyze_video_background(
         await storage_service.update_task_progress(task_id, 30, "正在获取评论")
         comments = await bili_service.get_comments(bvid, max_count=max_comments)
         logger.info(f"[{task_id}] 评论获取完成 - 共{len(comments)}条")
-        
+        comment_fetch_meta = dict(getattr(bili_service, "last_comment_fetch_meta", {}) or {})
+        await storage_service.update_task_comment_fetch_meta(task_id, comment_fetch_meta)
+
         saved_comments = await storage_service.save_comments(task_id, bvid, comments)
         logger.info(f"[{task_id}] 评论保存完成 - 成功保存{saved_comments}条")
 
@@ -104,7 +107,7 @@ async def analyze_video_background(
         # 4. 生成情绪时间轴
         logger.info(f"[{task_id}] 步骤4: 生成情绪时间轴和切面分析")
         await storage_service.update_task_progress(task_id, 90, "正在生成情绪时间轴")
-        timeline_result = await storage_service.generate_sentiment_timeline(task_id, bvid)
+        timeline_result = await storage_service.generate_sentiment_timeline(task_id, bvid, comment_fetch_meta=comment_fetch_meta)
         logger.info(f"[{task_id}] 情绪时间轴生成完成 - 时间点: {len(timeline_result.get('timeline', []))}, 切面: {len(timeline_result.get('aspects', {}))}")
 
         # 5. 完成

@@ -37,6 +37,36 @@
         ORDER BY dm_time ASC
     </select>
 
+    <sql id="DanmakuBaseSelect">
+        SELECT danmaku_id AS danmakuId, task_id AS taskId, bvid, content,
+               dm_time AS dmTime, appear_time AS appearTime,
+               normalized_content AS normalizedContent,
+               text_type AS textType,
+               sentiment_score AS sentimentScore, sentiment_label AS sentimentLabel,
+               sentiment_confidence AS sentimentConfidence,
+               sentiment_intensity AS sentimentIntensity,
+               sentiment_source AS sentimentSource,
+               sentiment_version AS sentimentVersion,
+               emotion_tags_json AS emotionTagsJson
+        FROM video_danmaku
+    </sql>
+
+    <sql id="DanmakuFilterWhere">
+        <where>
+            task_id = #{taskId}
+            <if test="sentimentLabel != null and sentimentLabel != ''">
+                AND sentiment_label = #{sentimentLabel}
+            </if>
+        </where>
+    </sql>
+
+    <select id="findPageByTaskId" resultType="com.ecut.bili_insight.entity.VideoDanmaku">
+        <include refid="DanmakuBaseSelect"/>
+        <include refid="DanmakuFilterWhere"/>
+        ORDER BY dm_time ASC, danmaku_id ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
     <select id="findByTaskIdAndSentiment" resultType="com.ecut.bili_insight.entity.VideoDanmaku">
         SELECT danmaku_id AS danmakuId, task_id AS taskId, bvid, content,
                dm_time AS dmTime, appear_time AS appearTime,
@@ -55,6 +85,12 @@
 
     <select id="countByTaskId" resultType="int">
         SELECT COUNT(*) FROM video_danmaku WHERE task_id = #{taskId}
+    </select>
+
+    <select id="countByTaskIdWithFilters" resultType="int">
+        SELECT COUNT(*)
+        FROM video_danmaku
+        <include refid="DanmakuFilterWhere"/>
     </select>
 
 </mapper>

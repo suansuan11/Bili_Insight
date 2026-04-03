@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { AnalysisTask, AnalysisResult, VideoComment, VideoDanmaku, SentimentTimeline } from '@/types/analysis'
+import type { AnalysisTask, AnalysisResult, VideoComment, VideoDanmaku, SentimentTimeline, PaginatedList } from '@/types/analysis'
 
 // Define the response structure if it's consistent
 interface ApiResponse<T> {
@@ -28,15 +28,26 @@ export const getAnalysisResult = (taskId: string): Promise<ApiResponse<AnalysisR
     return request.get(`/insight/analysis/result/${taskId}`)
 }
 
-export const getComments = (taskId: number, sentiment?: string, aspect?: string): Promise<ApiResponse<VideoComment[]>> => {
+export const getComments = (
+    taskId: string,
+    page: number,
+    size: number,
+    sentiment?: string,
+    aspect?: string
+): Promise<ApiResponse<PaginatedList<VideoComment>>> => {
     return request.get(`/insight/analysis/comments/${taskId}`, {
-        params: { sentiment, aspect }
+        params: { page, size, sentiment, aspect }
     })
 }
 
-export const getDanmakus = (taskId: number, sentiment?: string): Promise<ApiResponse<VideoDanmaku[]>> => {
+export const getDanmakus = (
+    taskId: string,
+    page: number,
+    size: number,
+    sentiment?: string
+): Promise<ApiResponse<PaginatedList<VideoDanmaku>>> => {
     return request.get(`/insight/analysis/danmakus/${taskId}`, {
-        params: { sentiment }
+        params: { page, size, sentiment }
     })
 }
 

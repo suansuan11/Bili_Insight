@@ -2,9 +2,14 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ecut.bili_insight.mapper.DashboardMapper">
 
-    <!-- 热门视频总数：平台全局，不按用户过滤 -->
+    <!-- 当前用户已分析的唯一视频数 -->
     <select id="getTotalVideos" resultType="java.lang.Integer">
-        SELECT COUNT(*) FROM popular_videos
+        SELECT COUNT(DISTINCT bvid)
+        FROM analysis_task
+        <where>
+            status = 'COMPLETED'
+            <if test="userId != null">AND user_id = #{userId}</if>
+        </where>
     </select>
 
     <!-- 当前用户分析过的视频的评论总数 -->

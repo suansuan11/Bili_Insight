@@ -3,6 +3,9 @@ export interface AnalysisTask {
     bvid: string
     title?: string
     coverUrl?: string
+    commentFetchMode?: string
+    commentRiskControlled?: boolean
+    commentFetchRetries?: number
     status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
     progress?: number
     currentStep?: string
@@ -49,14 +52,13 @@ export interface SentimentTimeline {
     taskId: number
     timelineJson: string
     aspectSentimentJson: string
+    aggregationMetaJson?: string
     // Backward compatibility if needed, but we should rely on timelineJson
     timelineData?: string
 }
 
 export interface AnalysisResult {
     task: AnalysisTask
-    comments: VideoComment[]
-    danmakus: VideoDanmaku[]
     timeline: SentimentTimeline
     comment_count?: number
     danmaku_count?: number
@@ -67,4 +69,12 @@ export interface AnalysisResult {
         positive_ratio: number
         negative_ratio: number
     }
+}
+
+export interface PaginatedList<T> {
+    items: T[]
+    page: number
+    size: number
+    total: number
+    hasMore: boolean
 }

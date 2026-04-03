@@ -76,7 +76,30 @@ class AspectAnalyzer:
         self.sentiment_analyzer = sentiment_analyzer
         self.aspect_keywords = aspect_keywords or self.DOMAIN_ASPECT_KEYWORDS
 
+    @staticmethod
+    def _strip_mentions_and_noise(text: str) -> str:
+        cleaned = re.sub(r"@[\w\u4e00-\u9fff\-]+", " ", text or "")
+        cleaned = re.sub(r"\[[^\]]{1,12}\]", " ", cleaned)
+        cleaned = re.sub(r"https?://\S+", " ", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned.strip()
+
+    @staticmethod
+    def _has_meaningful_signal(text: str) -> bool:
+        if not text:
+            return False
+        chinese_chars = re.findall(r"[\u4e00-\u9fff]", text)
+        alpha_words = re.findall(r"[A-Za-z]{2,}", text)
+        return len(chinese_chars) >= 2 or bool(alpha_words)
+
+    def _prepare_text(self, text: str) -> str:
+        cleaned = self._strip_mentions_and_noise(text)
+        return cleaned if self._has_meaningful_signal(cleaned) else ""
+
     def infer_domain(self, text: str) -> str:
+        text = self._prepare_text(text)
+        if not text:
+            return "content"
         scores = {}
         for domain, hints in self.DOMAIN_HINTS.items():
             scores[domain] = sum(1 for hint in hints if hint in text)
@@ -84,6 +107,7 @@ class AspectAnalyzer:
         return best_domain if scores.get(best_domain, 0) > 0 else "content"
 
     def _active_aspect_keywords(self, text: str) -> Dict[str, List[str]]:
+        text = self._prepare_text(text)
         domain = self.infer_domain(text)
         active = dict(self.COMMON_ASPECT_KEYWORDS)
         active.update(self.aspect_keywords.get(domain, {}))
@@ -94,6 +118,7 @@ class AspectAnalyzer:
         return active
 
     def _split_clauses(self, text: str) -> List[str]:
+        text = self._prepare_text(text)
         clauses = re.split(r"[，。！？!?；;]|但是|不过|然而|只是|就是|却|而是|但", text)
         return [clause.strip() for clause in clauses if clause and clause.strip()]
 
@@ -123,17 +148,25 @@ class AspectAnalyzer:
         Returns:
             命中的 aspect 列表（有序，按关键词库顺序）
         """
+        prepared_text = self._prepare_text(text)
+        if not prepared_text:
+            return []
+
         hit = []
-        active_keywords = self._active_aspect_keywords(text)
+        active_keywords = self._active_aspect_keywords(prepared_text)
         for aspect, keywords in active_keywords.items():
-            if any(keyword in text for keyword in keywords):
+            if any(keyword in prepared_text for keyword in keywords):
                 hit.append(aspect)
         return hit
 
     def _relevant_clauses(self, text: str, aspect: str) -> Tuple[List[str], int]:
-        active_keywords = self._active_aspect_keywords(text)
+        prepared_text = self._prepare_text(text)
+        if not prepared_text:
+            return ([], 0)
+
+        active_keywords = self._active_aspect_keywords(prepared_text)
         keywords = active_keywords.get(aspect, [])
-        clauses = self._split_clauses(text)
+        clauses = self._split_clauses(prepared_text)
         matched = []
         mention_count = 0
         for clause in clauses:
@@ -141,7 +174,7 @@ class AspectAnalyzer:
             if hit_count > 0:
                 mention_count += hit_count
                 matched.append(clause)
-        return (matched or [text]), mention_count
+        return (matched or [prepared_text]), mention_count
 
     def analyze(self, text: str, text_type: str = "comment") -> List[Dict]:
         """
@@ -167,14 +200,18 @@ class AspectAnalyzer:
             logger.warning("AspectAnalyzer: sentiment_analyzer 未注入，跳过 aspect 分析")
             return []
 
+        prepared_text = self._prepare_text(text)
+        if not prepared_text:
+            return []
+
         # 候选召回
-        aspects = self.recall_aspects(text)
+        aspects = self.recall_aspects(prepared_text)
         if not aspects:
             return []
 
         results = []
         for aspect in aspects:
-            clauses, mention_count = self._relevant_clauses(text, aspect)
+            clauses, mention_count = self._relevant_clauses(prepared_text, aspect)
             try:
                 score_sum = 0.0
                 conf_sum = 0.0
@@ -214,11 +251,15 @@ class AspectAnalyzer:
                 if max(local_labels.values()) > 1:
                     final_label = max(local_labels, key=local_labels.get)
 
+                final_confidence = round(min(0.99, conf_sum / max(len(clauses), 1)), 4)
+                if mention_count <= 0 or final_confidence < 0.52:
+                    continue
+
                 results.append({
                     "aspect": aspect,
                     "label": final_label,
                     "score": final_score,
-                    "confidence": round(min(0.99, conf_sum / max(len(clauses), 1)), 4),
+                    "confidence": final_confidence,
                     "source": "hybrid_clause_pair_v2",
                     "version": "aspect-hybrid-v2.0.0",
                     "context": "；".join(local_contexts),

@@ -7,7 +7,7 @@ import java.util.Map;
 
 @Mapper
 public interface DashboardMapper {
-    Integer getTotalVideos();
+    Integer getTotalVideos(@Param("userId") Long userId);
     Integer getTotalComments(@Param("userId") Long userId);
     Double getAvgSentiment(@Param("userId") Long userId);
     Integer getTotalTasks(@Param("userId") Long userId);

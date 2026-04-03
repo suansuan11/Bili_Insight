@@ -25,6 +25,11 @@ public interface VideoDanmakuMapper {
      */
     List<VideoDanmaku> findByTaskId(@Param("taskId") String taskId);
 
+    List<VideoDanmaku> findPageByTaskId(@Param("taskId") String taskId,
+                                        @Param("sentimentLabel") String sentimentLabel,
+                                        @Param("offset") int offset,
+                                        @Param("limit") int limit);
+
     /**
      * 根据任务ID和情感标签筛选弹幕
      * @param taskId 任务ID
@@ -40,4 +45,7 @@ public interface VideoDanmakuMapper {
      * @return 弹幕总数
      */
     int countByTaskId(@Param("taskId") String taskId);
+
+    int countByTaskIdWithFilters(@Param("taskId") String taskId,
+                                 @Param("sentimentLabel") String sentimentLabel);
 }

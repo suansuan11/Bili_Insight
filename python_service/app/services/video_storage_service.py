@@ -77,6 +77,50 @@ class VideoStorageService:
         finally:
             conn.close()
 
+    async def update_task_video_info(self, task_id: str, title: Optional[str]):
+        """回写视频标题，供任务列表和详情页直接读取"""
+        if not title:
+            return
+
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cursor:
+                sql = """
+                    UPDATE analysis_task
+                    SET video_title = %s, updated_at = NOW()
+                    WHERE task_id = %s
+                """
+                cursor.execute(sql, (title[:255], task_id))
+                conn.commit()
+        finally:
+            conn.close()
+
+    async def update_task_comment_fetch_meta(self, task_id: str, fetch_meta: Optional[Dict]):
+        """回写评论抓取元数据，便于后端和前端直接判断抓取稳定性"""
+        if not fetch_meta:
+            return
+
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cursor:
+                sql = """
+                    UPDATE analysis_task
+                    SET comment_fetch_mode = %s,
+                        comment_risk_controlled = %s,
+                        comment_fetch_retries = %s,
+                        updated_at = NOW()
+                    WHERE task_id = %s
+                """
+                cursor.execute(sql, (
+                    fetch_meta.get('mode'),
+                    1 if fetch_meta.get('risk_controlled') else 0,
+                    int(fetch_meta.get('retries') or 0),
+                    task_id,
+                ))
+                conn.commit()
+        finally:
+            conn.close()
+
     async def complete_task(self, task_id: str):
         """标记任务完成"""
         conn = self.get_connection()
@@ -332,7 +376,7 @@ class VideoStorageService:
         finally:
             conn.close()
 
-    async def generate_sentiment_timeline(self, task_id: str, bvid: str) -> Dict:
+    async def generate_sentiment_timeline(self, task_id: str, bvid: str, comment_fetch_meta: Optional[Dict] = None) -> Dict:
         """
         生成情绪时间轴数据
 
@@ -448,6 +492,8 @@ class VideoStorageService:
                     "weight": "sentiment_confidence",
                     "window_seconds": 10,
                 }
+                if comment_fetch_meta:
+                    aggregation_meta["comment_fetch"] = comment_fetch_meta
                 aggregation_meta_json = json.dumps(aggregation_meta, ensure_ascii=False)
 
                 logger.debug(f"[{task_id}] 保存时间轴和切面数据到数据库")

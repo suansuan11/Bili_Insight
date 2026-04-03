@@ -113,7 +113,10 @@
           @click="handleTaskClick(task)"
         >
           <div class="task-card-top">
-            <span class="task-bvid">{{ task.bvid }}</span>
+            <div class="task-title-group">
+              <span class="task-title">{{ task.title || task.bvid }}</span>
+              <span v-if="task.title" class="task-bvid">{{ task.bvid }}</span>
+            </div>
             <el-tag
               :type="getStatusType(task.status)"
               size="small"
@@ -558,12 +561,30 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.task-title-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.task-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-bvid {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
-  color: #1f2937;
+  color: #64748b;
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
 }
 

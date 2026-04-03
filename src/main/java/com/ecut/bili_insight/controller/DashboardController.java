@@ -55,7 +55,7 @@ public class DashboardController {
             Long userId = getCurrentUserId();
             Map<String, Object> stats = new HashMap<>();
 
-            Integer totalVideos = dashboardMapper.getTotalVideos();
+            Integer totalVideos = dashboardMapper.getTotalVideos(userId);
             stats.put("total_videos", totalVideos != null ? totalVideos : 0);
 
             Integer totalComments = dashboardMapper.getTotalComments(userId);

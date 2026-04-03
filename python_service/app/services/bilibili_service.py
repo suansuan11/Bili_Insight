@@ -24,6 +24,11 @@ class BilibiliService:
             credential: B站登录凭证（可选）
         """
         self.credential = credential
+        self.last_comment_fetch_meta: Dict[str, object] = {
+            "mode": "unstarted",
+            "risk_controlled": False,
+            "retries": 0
+        }
 
     @staticmethod
     def _extract_status_code(exc: Exception) -> Optional[int]:
@@ -110,6 +115,11 @@ class BilibiliService:
         使用 curl_cffi 模拟真实浏览器请求旧版分页评论接口，尽量绕开 wbi/main 的高敏风控。
         """
         logger.warning("切换到浏览器态 fallback 评论抓取")
+        self.last_comment_fetch_meta = {
+            "mode": "curl_cffi",
+            "risk_controlled": False,
+            "retries": self.last_comment_fetch_meta.get("retries", 0)
+        }
         headers = self._build_comment_headers(bvid)
         cookies = self._get_cookie_dict()
         all_comments: List[Dict] = []
@@ -166,6 +176,11 @@ class BilibiliService:
             raise RuntimeError("Playwright fallback 不可用")
 
         logger.warning("切换到 Playwright 浏览器态评论抓取")
+        self.last_comment_fetch_meta = {
+            "mode": "playwright",
+            "risk_controlled": False,
+            "retries": self.last_comment_fetch_meta.get("retries", 0)
+        }
         service = BrowserCommentService(cookie_dict=self._get_cookie_dict())
         return await service.fetch_comments(bvid=bvid, aid=aid, max_count=max_count)
 
@@ -182,7 +197,9 @@ class BilibiliService:
                 )
             except Exception as exc:
                 last_exc = exc
+                self.last_comment_fetch_meta["retries"] = attempt
                 if self._is_risk_control_error(exc):
+                    self.last_comment_fetch_meta["risk_controlled"] = True
                     if attempt < retries:
                         delay = 1.2 * attempt
                         logger.warning("评论接口触发风控(尝试 %s/%s)，%.1fs 后重试", attempt, retries, delay)
@@ -365,6 +382,11 @@ class BilibiliService:
             评论列表
         """
         logger.info(f"开始获取评论 - BVID: {bvid}, 最大数量: {max_count}")
+        self.last_comment_fetch_meta = {
+            "mode": "api",
+            "risk_controlled": False,
+            "retries": 0
+        }
         aid = await self._get_video_aid(bvid)
 
         try:
@@ -399,6 +421,7 @@ class BilibiliService:
                 await asyncio.sleep(0.8)
 
             logger.info(f"评论获取完成 - 共获取 {len(all_comments)} 条评论")
+            self.last_comment_fetch_meta["mode"] = "api"
             return all_comments
         except BilibiliRiskControlException:
             if not self.credential:

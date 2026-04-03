@@ -77,8 +77,8 @@ const fetchTaskData = async () => {
     // 1. 获取任务结果
     const resultRes: any = await getAnalysisResult(taskId as any)
     if (resultRes.code === 0 && resultRes.data) {
-      taskInfo.value = resultRes.data
-      bvid.value = resultRes.data.bvid
+      taskInfo.value = resultRes.data.task
+      bvid.value = resultRes.data.task?.bvid
     }
 
     // 2. 获取时间轴数据
@@ -92,9 +92,9 @@ const fetchTaskData = async () => {
     }
 
     // 3. 获取评论列表
-    const commentsRes: any = await getComments(taskId as any)
+    const commentsRes: any = await getComments(taskId as any, 1, 200)
     if (commentsRes.code === 0 && commentsRes.data) {
-      comments.value = commentsRes.data
+      comments.value = commentsRes.data.items || []
     }
   } catch (error: any) {
     ElMessage.error(error.message || '获取数据失败')
