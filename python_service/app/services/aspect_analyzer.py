@@ -18,8 +18,8 @@ class AspectAnalyzer:
     """
 
     DOMAIN_HINTS = {
-        "content": ["视频", "镜头", "剧情", "舞台", "配乐", "表演", "up", "主播", "内容", "讲解", "剪辑"],
-        "product": ["手机", "电脑", "耳机", "平板", "配置", "电池", "屏幕", "拍照", "系统", "价格"],
+        "content": ["视频", "镜头", "剧情", "舞台", "配乐", "表演", "up", "主播", "内容", "讲解", "剪辑", "标题", "封面", "广告"],
+        "product": ["手机", "电脑", "耳机", "平板", "配置", "电池", "屏幕", "拍照", "系统", "价格", "续航"],
         "food": ["好吃", "难吃", "口感", "味道", "食材", "店里", "环境", "分量"],
         "game": ["游戏", "操作", "机制", "平衡", "剧情", "氪", "帧率", "优化", "玩法"],
     }
@@ -28,23 +28,26 @@ class AspectAnalyzer:
         "整体": ["总体", "整体", "总的来说", "综合", "推荐", "不推荐", "值得", "后悔", "一般", "不错"],
         "内容": ["内容", "信息量", "表达", "观点", "立意", "干货", "主题", "讲解", "编排"],
         "情绪": ["感动", "震撼", "治愈", "共鸣", "上头", "哭了", "泪目", "燃", "情绪"],
+        "互动": ["弹幕", "评论", "氛围", "互动", "节奏点", "梗"],
     }
 
     DOMAIN_ASPECT_KEYWORDS = {
         "content": {
             "表演": ["表演", "演出", "演技", "动作", "舞蹈", "唱功", "台风", "表现力", "业务能力"],
-            "剪辑": ["剪辑", "转场", "节奏", "卡点", "特效", "字幕", "镜头语言"],
+            "剪辑": ["剪辑", "转场", "节奏", "卡点", "特效", "字幕", "镜头语言", "拖沓", "衔接"],
             "画面": ["画面", "镜头", "构图", "布景", "质感", "服化道", "摄影", "色调"],
-            "配乐": ["配乐", "bgm", "音乐", "音效", "伴奏", "旋律"],
+            "配乐": ["配乐", "bgm", "音乐", "音效", "伴奏", "旋律", "音质", "收音"],
             "主播": ["主播", "up主", "up", "博主", "作者", "主持", "讲得", "说得"],
             "剧情": ["剧情", "故事", "叙事", "铺垫", "反转", "人设", "角色", "台词"],
-            "专业度": ["专业", "专业性", "技术", "功底", "水平", "细节", "稳", "到位"],
+            "专业度": ["专业", "专业性", "技术", "功底", "水平", "细节", "到位", "逻辑", "严谨"],
             "造型": ["造型", "服装", "妆造", "外形", "颜值", "搭配"],
+            "标题封面": ["标题", "封面", "标题党", "封面党"],
+            "商业化": ["广告", "硬广", "推广", "带货", "恰饭", "恰烂钱"],
         },
         "product": {
             "外观": ["外观", "颜值", "设计", "外形", "好看", "漂亮", "丑", "造型", "外壳", "配色"],
             "性能": ["性能", "配置", "速度", "快", "慢", "卡", "流畅", "处理器", "芯片", "帧率", "延迟"],
-            "价格": ["价格", "贵", "便宜", "性价比", "值", "划算", "钱", "元", "块", "折扣", "优惠"],
+            "价格": ["价格", "贵", "便宜", "性价比", "值不值", "不值", "值了", "划算", "钱", "元", "块", "折扣", "优惠"],
             "续航": ["续航", "电池", "耗电", "充电", "电量", "待机", "掉电"],
             "拍照": ["拍照", "摄像", "相机", "照片", "镜头", "像素", "夜拍", "画质"],
             "屏幕": ["屏幕", "显示", "分辨率", "刷新率", "亮度", "色彩", "护眼"],
@@ -65,6 +68,10 @@ class AspectAnalyzer:
             "优化": ["优化", "卡顿", "掉帧", "延迟", "发热"],
             "氪金": ["氪", "抽卡", "付费", "充值", "逼氪"],
         },
+    }
+
+    GENERIC_CROSS_DOMAIN_KEYWORDS = {
+        "好看", "漂亮", "丑", "快", "慢", "卡", "香", "稳", "值", "钱", "一般", "不错", "差"
     }
 
     def __init__(self, sentiment_analyzer=None, aspect_keywords: Optional[Dict] = None):
@@ -100,21 +107,44 @@ class AspectAnalyzer:
         text = self._prepare_text(text)
         if not text:
             return "content"
-        scores = {}
-        for domain, hints in self.DOMAIN_HINTS.items():
-            scores[domain] = sum(1 for hint in hints if hint in text)
+        scores = self._domain_scores(text)
         best_domain = max(scores, key=scores.get) if scores else "content"
         return best_domain if scores.get(best_domain, 0) > 0 else "content"
+
+    def _domain_scores(self, text: str) -> Dict[str, int]:
+        return {
+            domain: sum(1 for hint in hints if hint in text)
+            for domain, hints in self.DOMAIN_HINTS.items()
+        }
+
+    @classmethod
+    def _keyword_hits(cls, text: str, keywords: List[str]) -> List[str]:
+        hits = []
+        for keyword in keywords:
+            if not keyword or keyword not in text:
+                continue
+            if len(keyword) == 1 and keyword not in {"氪"}:
+                continue
+            hits.append(keyword)
+        return hits
 
     def _active_aspect_keywords(self, text: str) -> Dict[str, List[str]]:
         text = self._prepare_text(text)
         domain = self.infer_domain(text)
+        domain_scores = self._domain_scores(text)
         active = dict(self.COMMON_ASPECT_KEYWORDS)
         active.update(self.aspect_keywords.get(domain, {}))
-        for domain_aspects in self.aspect_keywords.values():
+        for candidate_domain, domain_aspects in self.aspect_keywords.items():
+            if candidate_domain == domain:
+                continue
             for aspect, keywords in domain_aspects.items():
-                if any(keyword in text for keyword in keywords):
-                    active[aspect] = keywords
+                hits = self._keyword_hits(text, keywords)
+                strong_hits = [hit for hit in hits if hit not in self.GENERIC_CROSS_DOMAIN_KEYWORDS]
+                if hits and (domain_scores.get(candidate_domain, 0) >= 2 or strong_hits):
+                    if aspect in active:
+                        active[aspect] = list(dict.fromkeys(active[aspect] + keywords))
+                    else:
+                        active[aspect] = keywords
         return active
 
     def _split_clauses(self, text: str) -> List[str]:
@@ -155,26 +185,29 @@ class AspectAnalyzer:
         hit = []
         active_keywords = self._active_aspect_keywords(prepared_text)
         for aspect, keywords in active_keywords.items():
-            if any(keyword in prepared_text for keyword in keywords):
+            if self._keyword_hits(prepared_text, keywords):
                 hit.append(aspect)
         return hit
 
-    def _relevant_clauses(self, text: str, aspect: str) -> Tuple[List[str], int]:
+    def _relevant_clauses(self, text: str, aspect: str) -> Tuple[List[str], int, List[str]]:
         prepared_text = self._prepare_text(text)
         if not prepared_text:
-            return ([], 0)
+            return ([], 0, [])
 
         active_keywords = self._active_aspect_keywords(prepared_text)
         keywords = active_keywords.get(aspect, [])
         clauses = self._split_clauses(prepared_text)
         matched = []
         mention_count = 0
+        keyword_hits = []
         for clause in clauses:
-            hit_count = sum(1 for keyword in keywords if keyword in clause)
+            clause_hits = self._keyword_hits(clause, keywords)
+            hit_count = len(clause_hits)
             if hit_count > 0:
                 mention_count += hit_count
                 matched.append(clause)
-        return (matched or [prepared_text]), mention_count
+                keyword_hits.extend(clause_hits)
+        return (matched or [prepared_text]), mention_count, list(dict.fromkeys(keyword_hits))
 
     def analyze(self, text: str, text_type: str = "comment") -> List[Dict]:
         """
@@ -211,12 +244,12 @@ class AspectAnalyzer:
 
         results = []
         for aspect in aspects:
-            clauses, mention_count = self._relevant_clauses(prepared_text, aspect)
+            clauses, mention_count, keyword_hits = self._relevant_clauses(prepared_text, aspect)
             try:
                 score_sum = 0.0
                 conf_sum = 0.0
                 local_contexts = []
-                local_labels = {"POSITIVE": 0, "NEUTRAL": 0, "NEGATIVE": 0}
+                local_labels = {"POSITIVE": 0.0, "NEUTRAL": 0.0, "NEGATIVE": 0.0}
 
                 for clause in clauses:
                     local_contexts.append(clause)
@@ -234,11 +267,16 @@ class AspectAnalyzer:
                         blended_score -= 0.8
                     blended_score = max(-1.0, min(1.0, blended_score))
                     blended_conf = max(pair_result["confidence"], plain_result["confidence"])
-                    weight = max(0.35, blended_conf) * max(1, mention_count)
+                    weight = max(0.35, blended_conf)
                     score_sum += blended_score * weight
                     conf_sum += weight
-                    local_label = pair_result["label"]
-                    local_labels[local_label] = local_labels.get(local_label, 0) + 1
+                    if blended_score >= 0.22:
+                        local_label = "POSITIVE"
+                    elif blended_score <= -0.22:
+                        local_label = "NEGATIVE"
+                    else:
+                        local_label = "NEUTRAL"
+                    local_labels[local_label] = local_labels.get(local_label, 0.0) + weight
 
                 final_score = round(score_sum / conf_sum, 4) if conf_sum > 0 else 0.0
                 if final_score >= 0.22:
@@ -248,10 +286,11 @@ class AspectAnalyzer:
                 else:
                     final_label = "NEUTRAL"
 
-                if max(local_labels.values()) > 1:
+                if abs(final_score) < 0.16 and max(local_labels.values()) >= 0.7:
                     final_label = max(local_labels, key=local_labels.get)
 
-                final_confidence = round(min(0.99, conf_sum / max(len(clauses), 1)), 4)
+                hit_quality = min(1.0, mention_count / 2)
+                final_confidence = round(min(0.99, (conf_sum / max(len(clauses), 1)) * (0.8 + hit_quality * 0.2)), 4)
                 if mention_count <= 0 or final_confidence < 0.52:
                     continue
 
@@ -264,6 +303,7 @@ class AspectAnalyzer:
                     "version": "aspect-hybrid-v2.0.0",
                     "context": "；".join(local_contexts),
                     "mention_count": mention_count,
+                    "keyword_hits": keyword_hits,
                 })
             except Exception as e:
                 logger.warning(f"aspect '{aspect}' 情感判别失败: {e}")

@@ -67,6 +67,11 @@ class DomainRuleEngine:
             "positive": ["真香", "神作", "牛", "好看", "厉害", "赞", "爱了", "顶"],
             "negative": ["逆天", "无语", "拉胯", "烂", "失望", "垃圾", "坑"],
             "sarcasm": ["笑死", "绝了", "你是懂", "太会了", "好家伙", "蚌埠住了", "麻了"],
+            "neutral": ["前排", "打卡", "来了", "路过", "第一"],
+            "strong_positive": ["封神", "吹爆", "入股不亏", "真香", "神作"],
+            "strong_negative": ["避雷", "别买", "看不下去", "浪费时间", "一坨", "标题党"],
+            "mild_positive": ["还行", "可以", "不差", "不亏", "没毛病"],
+            "mild_negative": ["一般", "有点尬", "不太行", "不推荐"],
             "negation": ["不", "没", "无", "别", "非", "未"],
             "intensifiers": ["太", "巨", "非常", "真", "好", "超", "特别"],
         }
@@ -85,28 +90,43 @@ class DomainRuleEngine:
         window = text[start:end]
         return any(isinstance(c, str) and c and c in window for c in candidates)
 
+    def _negation_count_before(self, text: str, index: int, backward: int = 4) -> int:
+        """统计情感词前短窗口内的否定强度，避免“不是不好看”被单次反转。"""
+        prefix = text[max(0, index - backward):index]
+        return sum(1 for ch in prefix if ch in {"不", "没", "无", "非", "未", "别"})
+
     def _score_hit(self, text: str, hit: str, base_sign: int) -> float:
         idx = text.find(hit)
-        negations = self._lexicon.get("negation", [])
         intensifiers = self._lexicon.get("intensifiers", [])
 
         score = 1.0 * base_sign
         if idx >= 0 and self._window_has_any(text, idx, intensifiers, backward=3, forward=0):
             score *= 1.35
-        if idx >= 0 and self._window_has_any(text, idx, negations, backward=3, forward=0):
+        if idx >= 0 and self._negation_count_before(text, idx) % 2 == 1:
             score *= -1
         return score
 
-    def _lexicon_score(self, text: str, text_type: str, current_label: str) -> Tuple[float, Dict[str, List[str]]]:
+    def _weighted_phrase_score(self, text: str, bucket: str, weight: float) -> Tuple[float, List[str]]:
+        hits = self._find_hits(text, bucket)
+        return len(hits) * weight, hits
+
+    def _direct_signal_score(self, text: str, current_label: str) -> Tuple[float, Dict[str, List[str]]]:
         positive_hits = self._find_hits(text, "positive")
         negative_hits = self._find_hits(text, "negative")
         sarcasm_hits = self._find_hits(text, "sarcasm")
+        neutral_hits = self._find_hits(text, "neutral")
 
         score = 0.0
         for hit in positive_hits:
             score += self._score_hit(text, hit, 1)
         for hit in negative_hits:
             score += self._score_hit(text, hit, -1)
+
+        strong_pos_score, strong_positive_hits = self._weighted_phrase_score(text, "strong_positive", 1.35)
+        strong_neg_score, strong_negative_hits = self._weighted_phrase_score(text, "strong_negative", -1.45)
+        mild_pos_score, mild_positive_hits = self._weighted_phrase_score(text, "mild_positive", 0.55)
+        mild_neg_score, mild_negative_hits = self._weighted_phrase_score(text, "mild_negative", -0.55)
+        score += strong_pos_score + strong_neg_score + mild_pos_score + mild_neg_score
 
         # 反讽词默认偏负向，尤其配合问号或负面词时
         if sarcasm_hits:
@@ -116,7 +136,43 @@ class DomainRuleEngine:
             score += sarcasm_bias
 
         if "这也叫" in text or "就这" in text:
-            score -= 0.75
+            score -= 1.25
+            if "？" in text or "?" in text:
+                score -= 0.45
+
+        return score, {
+            "positive": positive_hits,
+            "negative": negative_hits,
+            "sarcasm": sarcasm_hits,
+            "neutral": neutral_hits,
+            "strong_positive": strong_positive_hits,
+            "strong_negative": strong_negative_hits,
+            "mild_positive": mild_positive_hits,
+            "mild_negative": mild_negative_hits,
+        }
+
+    def _merge_hits(self, base: Dict[str, List[str]], extra: Dict[str, List[str]]) -> Dict[str, List[str]]:
+        for key, values in extra.items():
+            merged = base.setdefault(key, [])
+            for value in values:
+                if value not in merged:
+                    merged.append(value)
+        return base
+
+    def _contrast_tail(self, text: str) -> str:
+        match = re.search(r"(?:但是|不过|然而|只是|却|但|可惜|问题是)([^，。！？!?；;]+)$", text)
+        return match.group(1).strip() if match else ""
+
+    def _lexicon_score(self, text: str, text_type: str, current_label: str) -> Tuple[float, Dict[str, List[str]]]:
+        score, hits = self._direct_signal_score(text, current_label)
+
+        tail = self._contrast_tail(text)
+        if tail:
+            tail_score, tail_hits = self._direct_signal_score(tail, current_label)
+            if abs(tail_score) >= 0.4:
+                # 转折后半句通常承载最终态度，增强 tail 权重。
+                score = score * 0.65 + tail_score * 0.9
+                self._merge_hits(hits, tail_hits)
 
         if text_type == "danmaku":
             dm_cfg = self._lexicon.get("danmaku_specific", {}) or {}
@@ -139,12 +195,16 @@ class DomainRuleEngine:
             elif tail_positive > tail_negative:
                 score += 0.25
 
+        if hits.get("neutral"):
+            affective_count = sum(
+                len(hits.get(bucket, []))
+                for bucket in ("positive", "negative", "sarcasm", "strong_positive", "strong_negative")
+            )
+            if affective_count == 0:
+                score *= 0.25
+
         score = math.tanh(score / 2.2)
-        return round(score, 4), {
-            "positive": positive_hits,
-            "negative": negative_hits,
-            "sarcasm": sarcasm_hits,
-        }
+        return round(score, 4), hits
 
     def _detect_emotion_tags(self, text: str, current_label: str, hits: Dict[str, List[str]]) -> List[str]:
         """
@@ -157,10 +217,10 @@ class DomainRuleEngine:
         if hits.get("sarcasm"):
             tags.append("sarcasm")
 
-        if current_label == "NEGATIVE" and hits.get("negative"):
+        if current_label == "NEGATIVE" and (hits.get("negative") or hits.get("strong_negative") or hits.get("mild_negative")):
             tags.append("complaint")
 
-        if current_label == "POSITIVE" and hits.get("positive"):
+        if current_label == "POSITIVE" and (hits.get("positive") or hits.get("strong_positive") or hits.get("mild_positive")):
             tags.append("praise")
 
         if "哈哈" in text or "233" in text or "笑" in text:
@@ -174,6 +234,9 @@ class DomainRuleEngine:
 
         if "震撼" in text or "惊艳" in text:
             tags.append("surprised")
+
+        if hits.get("neutral"):
+            tags.append("neutral_signal")
 
         return list(set(tags))  # 去重
 
@@ -202,21 +265,33 @@ class DomainRuleEngine:
         rule_score, hits = self._lexicon_score(text, text_type, label)
         model_score = float(result.get("score", 0.0))
 
-        weight = 0.2
+        strong_rule = abs(rule_score) >= 0.5
+        neutral_only = bool(hits.get("neutral")) and not any(
+            hits.get(bucket)
+            for bucket in ("positive", "negative", "sarcasm", "strong_positive", "strong_negative")
+        )
+
+        weight = 0.12 if confidence >= 0.82 and not strong_rule else 0.2
         if text_type == "danmaku":
             weight = 0.5
         elif normalized.features.get("is_short"):
-            weight = 0.4
+            weight = 0.45
         elif is_low_confidence:
             weight = 0.35
 
         blended_score = max(-1.0, min(1.0, model_score * (1 - weight) + rule_score * weight))
+
+        if neutral_only and normalized.features.get("normalized_length", 0) <= 12:
+            blended_score *= 0.2
 
         if blended_score >= 0.22:
             blended_label = "POSITIVE"
         elif blended_score <= -0.22:
             blended_label = "NEGATIVE"
         else:
+            blended_label = "NEUTRAL"
+
+        if neutral_only and normalized.features.get("normalized_length", 0) <= 12:
             blended_label = "NEUTRAL"
 
         result["rule_score"] = rule_score
@@ -226,10 +301,17 @@ class DomainRuleEngine:
         result["rule_corrected"] = blended_label != label
 
         # 置信度在短文本/规则强命中时做轻微重估
-        hit_strength = min(1.0, (len(hits.get("positive", [])) + len(hits.get("negative", [])) + len(hits.get("sarcasm", []))) / 3)
+        hit_strength = min(1.0, sum(
+            len(hits.get(bucket, []))
+            for bucket in ("positive", "negative", "sarcasm", "strong_positive", "strong_negative")
+        ) / 3)
         recalibrated_conf = max(confidence, min(0.95, abs(rule_score) * 0.65 + hit_strength * 0.25))
+        if strong_rule and hit_strength > 0:
+            recalibrated_conf = max(recalibrated_conf, 0.58)
         if text_type == "danmaku" and confidence < 0.5:
             recalibrated_conf = max(recalibrated_conf, min(0.85, abs(rule_score) * 0.8))
+        if neutral_only:
+            recalibrated_conf = max(recalibrated_conf, 0.68)
         result["confidence"] = round(recalibrated_conf, 4)
 
         # 1. 检测并附加 emotion_tags
