@@ -96,11 +96,28 @@ class ModelRegistry:
         if not env_model_name:
             return base
 
+        scheme_key = "DANMAKU_MODEL_LABEL_SCHEME" if text_type == "danmaku" else "COMMENT_MODEL_LABEL_SCHEME"
+        label_scheme = os.getenv(scheme_key, "").strip().lower()
+        if label_scheme == "three_class":
+            label_mapping = {
+                0: "NEGATIVE",
+                1: "NEUTRAL",
+                2: "POSITIVE",
+            }
+            score_mapping = {
+                0: -1.0,
+                1: 0.0,
+                2: 1.0,
+            }
+        else:
+            label_mapping = base.label_mapping
+            score_mapping = base.score_mapping
+
         return ModelConfig(
             model_name=env_model_name,
             version=f"{base.version}-env",
             max_length=base.max_length,
-            label_mapping=base.label_mapping,
-            score_mapping=base.score_mapping,
+            label_mapping=label_mapping,
+            score_mapping=score_mapping,
             hf_hub_name=env_model_name,
         )

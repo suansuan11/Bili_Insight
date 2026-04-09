@@ -5,6 +5,7 @@ Aspect 情感分析模块
 from typing import List, Dict, Optional, Tuple
 import re
 from ..utils.logger import logger
+from ..config import settings
 
 
 class AspectAnalyzer:
@@ -270,18 +271,18 @@ class AspectAnalyzer:
                     weight = max(0.35, blended_conf)
                     score_sum += blended_score * weight
                     conf_sum += weight
-                    if blended_score >= 0.22:
+                    if blended_score >= settings.aspect_score_positive_threshold:
                         local_label = "POSITIVE"
-                    elif blended_score <= -0.22:
+                    elif blended_score <= settings.aspect_score_negative_threshold:
                         local_label = "NEGATIVE"
                     else:
                         local_label = "NEUTRAL"
                     local_labels[local_label] = local_labels.get(local_label, 0.0) + weight
 
                 final_score = round(score_sum / conf_sum, 4) if conf_sum > 0 else 0.0
-                if final_score >= 0.22:
+                if final_score >= settings.aspect_score_positive_threshold:
                     final_label = "POSITIVE"
-                elif final_score <= -0.22:
+                elif final_score <= settings.aspect_score_negative_threshold:
                     final_label = "NEGATIVE"
                 else:
                     final_label = "NEUTRAL"
@@ -291,7 +292,7 @@ class AspectAnalyzer:
 
                 hit_quality = min(1.0, mention_count / 2)
                 final_confidence = round(min(0.99, (conf_sum / max(len(clauses), 1)) * (0.8 + hit_quality * 0.2)), 4)
-                if mention_count <= 0 or final_confidence < 0.52:
+                if mention_count <= 0 or final_confidence < settings.aspect_min_confidence:
                     continue
 
                 results.append({

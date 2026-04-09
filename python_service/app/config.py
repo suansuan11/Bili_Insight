@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     # 分析配置
     sentiment_positive_threshold: float = 0.6
     sentiment_negative_threshold: float = 0.4
+    sentiment_score_positive_threshold: float = 0.22
+    sentiment_score_negative_threshold: float = -0.22
+    sentiment_rule_low_confidence_threshold: float = 0.68
+    sentiment_rule_high_confidence_threshold: float = 0.82
+    sentiment_rule_high_confidence_weight: float = 0.12
+    sentiment_rule_base_weight: float = 0.2
+    sentiment_rule_low_confidence_weight: float = 0.35
+    sentiment_rule_short_text_weight: float = 0.45
+    sentiment_rule_danmaku_weight: float = 0.5
+    aspect_score_positive_threshold: float = 0.22
+    aspect_score_negative_threshold: float = -0.22
+    aspect_min_confidence: float = 0.52
     timeline_window_size: int = 10
 
     # API安全配置

@@ -14,12 +14,11 @@ except ImportError:
     _YAML_AVAILABLE = False
 
 from ..utils.logger import logger
+from ..config import settings
 from .text_normalizer import NormalizedText
 
 # 词典文件路径
 _LEXICON_PATH = Path(__file__).parent.parent / "resources" / "domain_lexicon.yml"
-
-_LOW_CONFIDENCE_THRESHOLD = 0.68
 
 
 class DomainRuleEngine:
@@ -78,7 +77,14 @@ class DomainRuleEngine:
 
     def _find_hits(self, text: str, bucket: str) -> List[str]:
         words = self._lexicon.get(bucket, [])
-        return [w for w in words if isinstance(w, str) and w and w in text]
+        hits = []
+        for word in words:
+            if not isinstance(word, str) or not word or word not in text:
+                continue
+            if bucket == "sarcasm" and word == "服了" and "舒服了" in text:
+                continue
+            hits.append(word)
+        return hits
 
     def _split_clauses(self, text: str) -> List[str]:
         clauses = re.split(r"[，,。！？!?；;]|但是|不过|然而|只是|就是|却|而是|但", text)
@@ -260,7 +266,7 @@ class DomainRuleEngine:
         text = normalized.normalized_text
         confidence = result.get("confidence", 1.0)
         label = result.get("label", "NEUTRAL")
-        is_low_confidence = confidence < _LOW_CONFIDENCE_THRESHOLD
+        is_low_confidence = confidence < settings.sentiment_rule_low_confidence_threshold
 
         rule_score, hits = self._lexicon_score(text, text_type, label)
         model_score = float(result.get("score", 0.0))
@@ -271,22 +277,26 @@ class DomainRuleEngine:
             for bucket in ("positive", "negative", "sarcasm", "strong_positive", "strong_negative")
         )
 
-        weight = 0.12 if confidence >= 0.82 and not strong_rule else 0.2
+        weight = (
+            settings.sentiment_rule_high_confidence_weight
+            if confidence >= settings.sentiment_rule_high_confidence_threshold and not strong_rule
+            else settings.sentiment_rule_base_weight
+        )
         if text_type == "danmaku":
-            weight = 0.5
+            weight = settings.sentiment_rule_danmaku_weight
         elif normalized.features.get("is_short"):
-            weight = 0.45
+            weight = settings.sentiment_rule_short_text_weight
         elif is_low_confidence:
-            weight = 0.35
+            weight = settings.sentiment_rule_low_confidence_weight
 
         blended_score = max(-1.0, min(1.0, model_score * (1 - weight) + rule_score * weight))
 
         if neutral_only and normalized.features.get("normalized_length", 0) <= 12:
             blended_score *= 0.2
 
-        if blended_score >= 0.22:
+        if blended_score >= settings.sentiment_score_positive_threshold:
             blended_label = "POSITIVE"
-        elif blended_score <= -0.22:
+        elif blended_score <= settings.sentiment_score_negative_threshold:
             blended_label = "NEGATIVE"
         else:
             blended_label = "NEUTRAL"
