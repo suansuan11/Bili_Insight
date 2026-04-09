@@ -21,6 +21,11 @@ public class AnalysisTask {
     private Long userId;
 
     /**
+     * 关联项目ID（项目监测任务使用）
+     */
+    private Long projectId;
+
+    /**
      * 视频BVID
      */
     private String bvid;

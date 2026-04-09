@@ -163,6 +163,24 @@ const parseKeywords = (keywords?: string): string[] => {
   }
 }
 
+const formatTargetBvidsForTextarea = (targetBvids?: string): string => {
+  if (!targetBvids) return ''
+  try {
+    const parsed = JSON.parse(targetBvids)
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === 'string').join('\n')
+    }
+  } catch {
+    // 兼容旧格式项目
+  }
+
+  return targetBvids
+    .split(/[\n,，]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
 const formatDate = (dateStr?: string): string => {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString('zh-CN')
@@ -183,7 +201,7 @@ const openEditDialog = (project: ProjectData) => {
   editingId.value = project.id!
   form.name = project.name
   form.description = project.description || ''
-  form.targetBvids = project.targetBvids || ''
+  form.targetBvids = formatTargetBvidsForTextarea(project.targetBvids)
   keywordList.value = parseKeywords(project.keywords)
   dialogVisible.value = true
 }

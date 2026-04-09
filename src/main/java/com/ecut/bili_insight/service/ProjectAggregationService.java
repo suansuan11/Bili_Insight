@@ -5,12 +5,15 @@ import com.ecut.bili_insight.entity.Project;
 import com.ecut.bili_insight.mapper.AnalysisTaskMapper;
 import com.ecut.bili_insight.mapper.ProjectMapper;
 import com.ecut.bili_insight.mapper.VideoCommentMapper;
+import com.ecut.bili_insight.util.ProjectTargetBvidsCodec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ProjectAggregationService {
@@ -34,7 +37,7 @@ public class ProjectAggregationService {
         stats.put("project", project);
 
         // 统计任务数量
-        List<AnalysisTask> tasks = taskMapper.findByProjectId(projectId);
+        List<AnalysisTask> tasks = selectStatisticTasks(project);
         stats.put("total_tasks", tasks.size());
         stats.put("completed_tasks", tasks.stream().filter(t -> "COMPLETED".equals(t.getStatus())).count());
 
@@ -57,5 +60,36 @@ public class ProjectAggregationService {
         stats.put("negative_ratio", totalComments > 0 ? (double) negativeComments / totalComments : 0);
 
         return stats;
+    }
+
+    private List<AnalysisTask> selectStatisticTasks(Project project) {
+        List<String> bvids = ProjectTargetBvidsCodec.parse(project.getTargetBvids());
+        if (bvids.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        return bvids.stream()
+                .map(bvid -> chooseStatisticTask(taskMapper.findProjectTaskCandidates(project.getId(), project.getUserId(), bvid)))
+                .filter(task -> task != null)
+                .collect(Collectors.toList());
+    }
+
+    private AnalysisTask chooseStatisticTask(List<AnalysisTask> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return null;
+        }
+
+        List<AnalysisTask> sorted = tasks.stream()
+                .sorted(Comparator.comparing(this::taskSortTime, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+
+        return sorted.stream()
+                .filter(task -> "COMPLETED".equals(task.getStatus()))
+                .findFirst()
+                .orElse(sorted.get(0));
+    }
+
+    private java.time.LocalDateTime taskSortTime(AnalysisTask task) {
+        return task.getCompletedAt() != null ? task.getCompletedAt() : task.getCreatedAt();
     }
 }

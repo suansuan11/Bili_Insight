@@ -8,8 +8,7 @@ import com.ecut.bili_insight.mapper.ProjectMapper;
 import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
 import com.ecut.bili_insight.service.BiliCredentialService;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ecut.bili_insight.util.ProjectTargetBvidsCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,9 +47,6 @@ public class ProjectMonitorScheduler {
     @Autowired
     private BiliCredentialService biliCredentialService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     /**
      * 每小时整点触发一次监测扫描
      */
@@ -69,7 +65,7 @@ public class ProjectMonitorScheduler {
         int skipped = 0;
 
         for (Project project : projects) {
-            List<String> bvids = parseBvids(project.getTargetBvids());
+            List<String> bvids = ProjectTargetBvidsCodec.parse(project.getTargetBvids());
             if (bvids.isEmpty()) {
                 continue;
             }
@@ -87,11 +83,12 @@ public class ProjectMonitorScheduler {
                     project.getName(), project.getUserId(), bvids.size());
 
             for (String bvid : bvids) {
-                if (needsAnalysis(bvid)) {
+                if (needsAnalysis(project.getId(), project.getUserId(), bvid)) {
                     logger.info("[监测调度] 触发分析: bvid={}, projectId={}", bvid, project.getId());
                     analysisTaskService.forceSubmitAnalysisTask(
                             bvid,
                             project.getUserId(),
+                            project.getId(),
                             user != null ? user.getBiliSessdata() : null,
                             user != null ? user.getBiliJct() : null,
                             user != null ? user.getBiliBuvid3() : null,
@@ -111,32 +108,34 @@ public class ProjectMonitorScheduler {
      * 判断某个 bvid 是否需要重新分析：
      * 没有已完成的任务，或最近完成的任务超过 STALE_DAYS 天
      */
-    private boolean needsAnalysis(String bvid) {
-        AnalysisTask latest = analysisTaskMapper.findByBvid(bvid);
+    private boolean needsAnalysis(Long projectId, Long userId, String bvid) {
+        AnalysisTask latest = latestCandidate(projectId, userId, bvid);
         if (latest == null) {
             return true;
         }
-        if (!"COMPLETED".equals(latest.getStatus())) {
-            // 正在进行中（PENDING/RUNNING）则不重复提交
+
+        String status = latest.getStatus();
+        if ("PENDING".equals(status) || "RUNNING".equals(status)) {
+            // 正在进行中则不重复提交
             return false;
         }
+
+        if (!"COMPLETED".equals(status)) {
+            // FAILED 等终态允许后续扫描重试
+            return true;
+        }
+
         // 已完成但数据过期
         LocalDateTime staleThreshold = LocalDateTime.now().minusDays(STALE_DAYS);
-        return latest.getCreatedAt() != null && latest.getCreatedAt().isBefore(staleThreshold);
+        LocalDateTime freshnessTime = latest.getCompletedAt() != null ? latest.getCompletedAt() : latest.getCreatedAt();
+        return freshnessTime != null && freshnessTime.isBefore(staleThreshold);
     }
 
-    /**
-     * 解析 target_bvids JSON 字符串为列表，解析失败时返回空列表
-     */
-    private List<String> parseBvids(String targetBvidsJson) {
-        if (targetBvidsJson == null || targetBvidsJson.trim().isEmpty()) {
-            return Collections.emptyList();
+    private AnalysisTask latestCandidate(Long projectId, Long userId, String bvid) {
+        List<AnalysisTask> candidates = analysisTaskMapper.findProjectTaskCandidates(projectId, userId, bvid);
+        if (candidates == null || candidates.isEmpty()) {
+            return null;
         }
-        try {
-            return objectMapper.readValue(targetBvidsJson, new TypeReference<List<String>>() {});
-        } catch (Exception e) {
-            logger.warn("[监测调度] target_bvids JSON 解析失败: {}, 内容: {}", e.getMessage(), targetBvidsJson);
-            return Collections.emptyList();
-        }
+        return candidates.get(0);
     }
 }

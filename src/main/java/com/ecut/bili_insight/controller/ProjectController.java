@@ -6,6 +6,7 @@ import com.ecut.bili_insight.entity.Project;
 import com.ecut.bili_insight.entity.User;
 import com.ecut.bili_insight.mapper.ProjectMapper;
 import com.ecut.bili_insight.mapper.UserMapper;
+import com.ecut.bili_insight.util.ProjectTargetBvidsCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,6 +102,7 @@ public class ProjectController {
             }
 
             project.setUserId(currentUser.getId());
+            project.setTargetBvids(ProjectTargetBvidsCodec.normalizeForStorage(project.getTargetBvids()));
             projectMapper.insert(project);
             return Result.success(project);
         } catch (Exception e) {
@@ -127,6 +129,8 @@ public class ProjectController {
                 return Result.failed(ResultCode.UNAUTHORIZED, "无权修改该项目");
             }
             project.setId(id);
+            project.setUserId(currentUser.getId());
+            project.setTargetBvids(ProjectTargetBvidsCodec.normalizeForStorage(project.getTargetBvids()));
             projectMapper.update(project);
             return Result.success(project);
         } catch (Exception e) {

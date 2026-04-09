@@ -23,7 +23,11 @@ public interface IAnalysisTaskService {
      * @param buvid3    用户绑定的 buvid3
      * @return 任务ID
      */
-    String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson);
+    default String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+        return submitAnalysisTask(bvid, userId, null, sessdata, biliJct, buvid3, cookieJson);
+    }
+
+    String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson);
 
     /**
      * 强制重新分析（忽略已有 COMPLETED 任务，始终创建新任务）
@@ -35,7 +39,11 @@ public interface IAnalysisTaskService {
      * @param buvid3    用户绑定的 buvid3
      * @return 新任务ID
      */
-    String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson);
+    default String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+        return forceSubmitAnalysisTask(bvid, userId, null, sessdata, biliJct, buvid3, cookieJson);
+    }
+
+    String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson);
 
     /**
      * 查询任务状态

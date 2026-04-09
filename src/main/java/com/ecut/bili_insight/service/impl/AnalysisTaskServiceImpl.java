@@ -48,27 +48,31 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 提交视频分析任务（若已有 COMPLETED 任务则复用）
      */
     @Override
-    public String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+    public String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson) {
         logger.info("Submitting analysis task: bvid={}, userId={}, hasCredential={}", bvid, userId, sessdata != null);
 
-        AnalysisTask existingTask = taskMapper.findByBvid(bvid);
-        if (existingTask != null && "COMPLETED".equals(existingTask.getStatus())
+        AnalysisTask existingTask = projectId == null
+                ? taskMapper.findByBvid(bvid)
+                : taskMapper.findLatestByProjectIdAndBvid(projectId, bvid);
+        if (existingTask != null
+                && "COMPLETED".equals(existingTask.getStatus())
                 && userId.equals(existingTask.getUserId())) {
             logger.info("Task already completed for BVID: {}, reusing taskId={}", bvid, existingTask.getTaskId());
             return existingTask.getTaskId();
         }
 
-        String taskId = createTaskInTransaction(bvid, userId);
+        String taskId = createTaskInTransaction(bvid, userId, projectId);
         callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
         return taskId;
     }
 
     @Transactional
-    protected String createTaskInTransaction(String bvid, Long userId) {
+    protected String createTaskInTransaction(String bvid, Long userId, Long projectId) {
         AnalysisTask task = new AnalysisTask();
         task.setTaskId(java.util.UUID.randomUUID().toString());
         task.setBvid(bvid);
         task.setUserId(userId);
+        task.setProjectId(projectId);
         task.setStatus("PENDING");
         task.setTaskType("FULL");
         task.setProgress(0);
@@ -83,9 +87,9 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 强制重新分析（忽略已有 COMPLETED 任务）
      */
     @Override
-    public String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+    public String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson) {
         logger.info("Force submitting analysis task: bvid={}, userId={}", bvid, userId);
-        String taskId = createTaskInTransaction(bvid, userId);
+        String taskId = createTaskInTransaction(bvid, userId, projectId);
         callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
         return taskId;
     }

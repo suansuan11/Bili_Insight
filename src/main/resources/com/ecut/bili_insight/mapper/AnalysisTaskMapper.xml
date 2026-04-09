@@ -4,17 +4,17 @@
 
     <insert id="insert" parameterType="com.ecut.bili_insight.entity.AnalysisTask">
         INSERT INTO analysis_task (
-            task_id, bvid, video_title, user_id, status, task_type, progress, current_step, error_message,
+            task_id, bvid, video_title, user_id, project_id, status, task_type, progress, current_step, error_message,
             comment_fetch_mode, comment_risk_controlled, comment_fetch_retries, created_at, updated_at
         )
         VALUES (
-            #{taskId}, #{bvid}, #{title}, #{userId}, #{status}, #{taskType}, #{progress}, #{currentStep}, #{errorMessage},
+            #{taskId}, #{bvid}, #{title}, #{userId}, #{projectId}, #{status}, #{taskType}, #{progress}, #{currentStep}, #{errorMessage},
             #{commentFetchMode}, COALESCE(#{commentRiskControlled}, 0), COALESCE(#{commentFetchRetries}, 0), NOW(), NOW()
         )
     </insert>
 
     <select id="findById" resultType="com.ecut.bili_insight.entity.AnalysisTask">
-        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, status, task_type AS taskType, progress,
+        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, project_id AS projectId, status, task_type AS taskType, progress,
                current_step AS currentStep, error_message AS errorMessage,
                comment_fetch_mode AS commentFetchMode,
                comment_risk_controlled AS commentRiskControlled,
@@ -25,16 +25,46 @@
     </select>
 
     <select id="findByBvid" resultType="com.ecut.bili_insight.entity.AnalysisTask">
-        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, status, task_type AS taskType, progress,
+        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, project_id AS projectId, status, task_type AS taskType, progress,
                current_step AS currentStep, error_message AS errorMessage,
-               comment_fetch_mode AS commentFetchMode,
-               comment_risk_controlled AS commentRiskControlled,
+                comment_fetch_mode AS commentFetchMode,
+                comment_risk_controlled AS commentRiskControlled,
                comment_fetch_retries AS commentFetchRetries,
                created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt
         FROM analysis_task
         WHERE bvid = #{bvid}
         ORDER BY created_at DESC
         LIMIT 1
+    </select>
+
+    <select id="findLatestByProjectIdAndBvid" resultType="com.ecut.bili_insight.entity.AnalysisTask">
+        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, project_id AS projectId,
+               status, task_type AS taskType, progress, current_step AS currentStep, error_message AS errorMessage,
+               comment_fetch_mode AS commentFetchMode,
+               comment_risk_controlled AS commentRiskControlled,
+               comment_fetch_retries AS commentFetchRetries,
+               created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt
+        FROM analysis_task
+        WHERE project_id = #{projectId}
+          AND bvid = #{bvid}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="findProjectTaskCandidates" resultType="com.ecut.bili_insight.entity.AnalysisTask">
+        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, project_id AS projectId,
+               status, task_type AS taskType, progress, current_step AS currentStep, error_message AS errorMessage,
+               comment_fetch_mode AS commentFetchMode,
+               comment_risk_controlled AS commentRiskControlled,
+               comment_fetch_retries AS commentFetchRetries,
+               created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt
+        FROM analysis_task
+        WHERE bvid = #{bvid}
+          AND (
+            project_id = #{projectId}
+            OR (project_id IS NULL AND user_id = #{userId})
+          )
+        ORDER BY created_at DESC
     </select>
 
     <update id="updateStatus">
@@ -54,10 +84,10 @@
     </update>
 
     <select id="findRecent" resultType="com.ecut.bili_insight.entity.AnalysisTask">
-        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, status, task_type AS taskType, progress,
+        SELECT task_id AS taskId, bvid, video_title AS title, user_id AS userId, project_id AS projectId, status, task_type AS taskType, progress,
                current_step AS currentStep, error_message AS errorMessage,
-               comment_fetch_mode AS commentFetchMode,
-               comment_risk_controlled AS commentRiskControlled,
+                comment_fetch_mode AS commentFetchMode,
+                comment_risk_controlled AS commentRiskControlled,
                comment_fetch_retries AS commentFetchRetries,
                created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt
         FROM analysis_task

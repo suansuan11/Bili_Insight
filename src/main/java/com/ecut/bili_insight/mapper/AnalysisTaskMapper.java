@@ -34,6 +34,12 @@ public interface AnalysisTaskMapper {
      */
     AnalysisTask findByBvid(@Param("bvid") String bvid);
 
+    AnalysisTask findLatestByProjectIdAndBvid(@Param("projectId") Long projectId, @Param("bvid") String bvid);
+
+    java.util.List<AnalysisTask> findProjectTaskCandidates(@Param("projectId") Long projectId,
+                                                           @Param("userId") Long userId,
+                                                           @Param("bvid") String bvid);
+
     /**
      * 更新任务状态
      * 
