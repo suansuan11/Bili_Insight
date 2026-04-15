@@ -18,10 +18,25 @@
           <el-divider />
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">自动刷新</h3>
-              <p class="setting-desc">自动刷新分析结果页面</p>
+              <h3 class="setting-name">系统语言</h3>
+              <p class="setting-desc">选择系统的主要显示语言</p>
             </div>
-            <el-switch v-model="autoRefresh" />
+            <el-select v-model="language" style="width: 160px">
+              <el-option label="简体中文" value="zh-CN" />
+              <el-option label="English" value="en-US" />
+            </el-select>
+          </div>
+          <el-divider />
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-name">日期时间格式</h3>
+              <p class="setting-desc">配置分析任务列表和详情的时间显示格式</p>
+            </div>
+            <el-select v-model="dateFormat" style="width: 160px">
+              <el-option label="YYYY/MM/DD HH:mm" value="1" />
+              <el-option label="YYYY-MM-DD HH:mm" value="2" />
+              <el-option label="MM月DD日 HH:mm" value="3" />
+            </el-select>
           </div>
         </div>
       </el-tab-pane>
@@ -83,29 +98,57 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="API 配置" name="api">
+      <el-tab-pane label="通知设置" name="notifications">
         <div class="tab-content">
-          <div class="api-form">
-            <div class="api-field">
-              <label class="api-label">后端 API 地址</label>
-              <el-input v-model="backendUrl" placeholder="http://localhost:8080" />
-              <p class="api-hint">Java Spring Boot 后端服务地址</p>
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-name">桌面通知</h3>
+              <p class="setting-desc">当分析任务状态变更时，向浏览器推送系统通知</p>
             </div>
-            <div class="api-field">
-              <label class="api-label">Python 服务地址</label>
-              <el-input v-model="pythonServiceUrl" placeholder="http://localhost:8001" />
-              <p class="api-hint">Python FastAPI 情感分析服务地址</p>
+            <el-switch v-model="desktopNotify" />
+          </div>
+          <el-divider />
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-name">任务完成提示音</h3>
+              <p class="setting-desc">任务处理完毕后播放清脆的提示音效</p>
             </div>
-            <el-button type="primary" @click="saveApiSettings">保存配置</el-button>
+            <el-switch v-model="soundNotify" />
+          </div>
+          <el-divider />
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-name">周报推送</h3>
+              <p class="setting-desc">每周自动汇总监控数据并推送到默认账号</p>
+            </div>
+            <el-switch v-model="dailyReport" />
           </div>
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="缓存管理" name="cache">
+      <el-tab-pane label="高级设置" name="advanced">
         <div class="tab-content">
-          <el-empty description="暂无缓存数据" />
-          <div style="text-align: center; margin-top: 12px;">
-            <el-button type="danger" plain>清除本地缓存</el-button>
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-name">默认分析引擎</h3>
+              <p class="setting-desc">选择用于情感分析的底层引擎模型</p>
+            </div>
+            <el-select v-model="analysisEngine" style="width: 160px">
+              <el-option label="SnowNLP (快速)" value="snownlp" />
+              <el-option label="Transformer (精准)" value="transformer" />
+            </el-select>
+          </div>
+          <el-divider />
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-name">数据保留期限</h3>
+              <p class="setting-desc">超过期限的分析详情数据将被自动清理以节省空间</p>
+            </div>
+            <el-select v-model="dataRetention" style="width: 160px">
+              <el-option label="30 天" value="30" />
+              <el-option label="90 天" value="90" />
+              <el-option label="永不清理" value="permanent" />
+            </el-select>
           </div>
         </div>
       </el-tab-pane>
@@ -124,9 +167,13 @@ import { useDarkMode } from '@/composables/useDarkMode'
 const { isDark, toggleDark } = useDarkMode()
 
 const activeTab = ref('account')
-const autoRefresh = ref(true)
-const backendUrl = ref('http://localhost:8080')
-const pythonServiceUrl = ref('http://localhost:8001')
+const language = ref('zh-CN')
+const dateFormat = ref('1')
+const desktopNotify = ref(true)
+const soundNotify = ref(false)
+const dailyReport = ref(false)
+const analysisEngine = ref('transformer')
+const dataRetention = ref('90')
 
 const isLoggedIn = ref(false)
 const userInfo = ref<any>(null)
@@ -150,9 +197,7 @@ const statusClass = computed(() => {
   return 'status-default'
 })
 
-const saveApiSettings = () => {
-  ElMessage.success('API 配置已保存')
-}
+
 
 const checkLoginStatus = async () => {
   try {
@@ -477,29 +522,5 @@ onUnmounted(() => {
 .status-success { color: #16a34a; font-weight: 500; }
 .status-error   { color: #dc2626; }
 
-/* API Form */
-.api-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 480px;
-}
 
-.api-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.api-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-main);
-}
-
-.api-hint {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
 </style>

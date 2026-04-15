@@ -542,6 +542,7 @@ onUnmounted(() => {
   gap: 10px;
   transition: box-shadow 0.25s ease, transform 0.2s ease;
   background: #fafbfc;
+  min-width: 0;
 }
 
 .task-card:hover {
@@ -569,6 +570,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1;
 }
 
 .task-title {

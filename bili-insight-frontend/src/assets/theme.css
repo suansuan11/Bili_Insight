@@ -366,7 +366,8 @@ html.dark .task-list-section {
 }
 
 html.dark .submit-title,
-html.dark .task-list-title {
+html.dark .task-list-title,
+html.dark .task-title {
   color: var(--color-text-main) !important;
 }
 
@@ -387,8 +388,10 @@ html.dark .task-card--clickable:hover {
   border-color: var(--color-primary) !important;
 }
 
-html.dark .task-bvid {
-  color: var(--color-text-main) !important;
+html.dark .task-bvid,
+html.dark .task-step,
+html.dark .task-time {
+  color: var(--color-text-secondary) !important;
 }
 
 html.dark .stat-number {
