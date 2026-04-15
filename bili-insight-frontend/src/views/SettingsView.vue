@@ -19,9 +19,9 @@
           <div class="setting-row">
             <div>
               <h3 class="setting-name">系统语言</h3>
-              <p class="setting-desc">选择系统的主要显示语言</p>
+              <p class="setting-desc">选择系统的主要显示语言（当前仅本地保存）</p>
             </div>
-            <el-select v-model="language" style="width: 160px">
+            <el-select v-model="language" style="width: 160px" @change="saveSettings">
               <el-option label="简体中文" value="zh-CN" />
               <el-option label="English" value="en-US" />
             </el-select>
@@ -30,9 +30,9 @@
           <div class="setting-row">
             <div>
               <h3 class="setting-name">日期时间格式</h3>
-              <p class="setting-desc">配置分析任务列表和详情的时间显示格式</p>
+              <p class="setting-desc">配置分析任务列表和详情的时间显示格式（当前仅本地保存）</p>
             </div>
-            <el-select v-model="dateFormat" style="width: 160px">
+            <el-select v-model="dateFormat" style="width: 160px" @change="saveSettings">
               <el-option label="YYYY/MM/DD HH:mm" value="1" />
               <el-option label="YYYY-MM-DD HH:mm" value="2" />
               <el-option label="MM月DD日 HH:mm" value="3" />
@@ -105,7 +105,7 @@
               <h3 class="setting-name">桌面通知</h3>
               <p class="setting-desc">当分析任务状态变更时，向浏览器推送系统通知</p>
             </div>
-            <el-switch v-model="desktopNotify" />
+            <el-switch v-model="desktopNotify" @change="handleDesktopNotifyChange" />
           </div>
           <el-divider />
           <div class="setting-row">
@@ -113,15 +113,18 @@
               <h3 class="setting-name">任务完成提示音</h3>
               <p class="setting-desc">任务处理完毕后播放清脆的提示音效</p>
             </div>
-            <el-switch v-model="soundNotify" />
+            <div class="setting-control">
+              <el-switch v-model="soundNotify" @change="handleSoundNotifyChange" />
+              <el-button size="small" text @click="playTestSound">测试</el-button>
+            </div>
           </div>
           <el-divider />
           <div class="setting-row">
             <div>
               <h3 class="setting-name">周报推送</h3>
-              <p class="setting-desc">每周自动汇总监控数据并推送到默认账号</p>
+              <p class="setting-desc">每周自动汇总监控数据并推送到默认账号（后端推送服务暂未接入）</p>
             </div>
-            <el-switch v-model="dailyReport" />
+            <el-switch v-model="dailyReport" @change="handlePlaceholderSetting('周报推送')" />
           </div>
         </div>
       </el-tab-pane>
@@ -131,9 +134,9 @@
           <div class="setting-row">
             <div>
               <h3 class="setting-name">默认分析引擎</h3>
-              <p class="setting-desc">选择用于情感分析的底层引擎模型</p>
+              <p class="setting-desc">选择用于情感分析的底层引擎模型（后端运行时切换暂未接入）</p>
             </div>
-            <el-select v-model="analysisEngine" style="width: 160px">
+            <el-select v-model="analysisEngine" style="width: 160px" @change="handlePlaceholderSetting('默认分析引擎')">
               <el-option label="SnowNLP (快速)" value="snownlp" />
               <el-option label="Transformer (精准)" value="transformer" />
             </el-select>
@@ -142,9 +145,9 @@
           <div class="setting-row">
             <div>
               <h3 class="setting-name">数据保留期限</h3>
-              <p class="setting-desc">超过期限的分析详情数据将被自动清理以节省空间</p>
+              <p class="setting-desc">超过期限的分析详情数据将被自动清理以节省空间（清理任务暂未接入）</p>
             </div>
-            <el-select v-model="dataRetention" style="width: 160px">
+            <el-select v-model="dataRetention" style="width: 160px" @change="handlePlaceholderSetting('数据保留期限')">
               <el-option label="30 天" value="30" />
               <el-option label="90 天" value="90" />
               <el-option label="永不清理" value="permanent" />
@@ -166,14 +169,47 @@ import { useDarkMode } from '@/composables/useDarkMode'
 
 const { isDark, toggleDark } = useDarkMode()
 
+const SETTINGS_STORAGE_KEY = 'bili-insight-settings'
+
+interface LocalSettings {
+  language: string
+  dateFormat: string
+  desktopNotify: boolean
+  soundNotify: boolean
+  dailyReport: boolean
+  analysisEngine: string
+  dataRetention: string
+}
+
+const defaultSettings: LocalSettings = {
+  language: 'zh-CN',
+  dateFormat: '1',
+  desktopNotify: false,
+  soundNotify: false,
+  dailyReport: false,
+  analysisEngine: 'transformer',
+  dataRetention: '90',
+}
+
+function loadLocalSettings(): LocalSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings
+  } catch {
+    return defaultSettings
+  }
+}
+
+const localSettings = loadLocalSettings()
+
 const activeTab = ref('account')
-const language = ref('zh-CN')
-const dateFormat = ref('1')
-const desktopNotify = ref(true)
-const soundNotify = ref(false)
-const dailyReport = ref(false)
-const analysisEngine = ref('transformer')
-const dataRetention = ref('90')
+const language = ref(localSettings.language)
+const dateFormat = ref(localSettings.dateFormat)
+const desktopNotify = ref(localSettings.desktopNotify)
+const soundNotify = ref(localSettings.soundNotify)
+const dailyReport = ref(localSettings.dailyReport)
+const analysisEngine = ref(localSettings.analysisEngine)
+const dataRetention = ref(localSettings.dataRetention)
 
 const isLoggedIn = ref(false)
 const userInfo = ref<any>(null)
@@ -196,6 +232,81 @@ const statusClass = computed(() => {
   if (loginStatus.value === 'scanned') return 'status-success'
   return 'status-default'
 })
+
+const saveSettings = () => {
+  const next: LocalSettings = {
+    language: language.value,
+    dateFormat: dateFormat.value,
+    desktopNotify: desktopNotify.value,
+    soundNotify: soundNotify.value,
+    dailyReport: dailyReport.value,
+    analysisEngine: analysisEngine.value,
+    dataRetention: dataRetention.value,
+  }
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next))
+}
+
+const handleDesktopNotifyChange = async () => {
+  if (!desktopNotify.value) {
+    saveSettings()
+    return
+  }
+
+  if (!('Notification' in window)) {
+    desktopNotify.value = false
+    saveSettings()
+    ElMessage.warning('当前浏览器不支持桌面通知')
+    return
+  }
+
+  const permission = Notification.permission === 'default'
+    ? await Notification.requestPermission()
+    : Notification.permission
+
+  if (permission !== 'granted') {
+    desktopNotify.value = false
+    saveSettings()
+    ElMessage.warning('未获得浏览器通知权限')
+    return
+  }
+
+  saveSettings()
+  ElMessage.success('桌面通知已启用')
+}
+
+const playTestSound = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) {
+      ElMessage.warning('当前浏览器不支持提示音测试')
+      return
+    }
+    const audioContext = new AudioContextClass()
+    const oscillator = audioContext.createOscillator()
+    const gain = audioContext.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.value = 880
+    gain.gain.value = 0.08
+    oscillator.connect(gain)
+    gain.connect(audioContext.destination)
+    oscillator.start()
+    oscillator.stop(audioContext.currentTime + 0.18)
+  } catch {
+    ElMessage.warning('提示音播放失败')
+  }
+}
+
+const handleSoundNotifyChange = () => {
+  saveSettings()
+  if (soundNotify.value) {
+    playTestSound()
+  }
+}
+
+const handlePlaceholderSetting = (name: string) => {
+  saveSettings()
+  ElMessage.info(`${name}已本地保存，服务端功能暂未接入`)
+}
 
 
 
@@ -378,6 +489,12 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .setting-name {

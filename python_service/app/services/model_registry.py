@@ -13,6 +13,9 @@ try:
 except Exception:
     pass
 
+_PYTHON_SERVICE_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _PYTHON_SERVICE_DIR.parent
+
 
 @dataclass
 class ModelConfig:
@@ -85,6 +88,38 @@ class ModelRegistry:
         hf_hub_name="H-Z-Ning/Senti-RoBERTa-Mini"
     )
 
+    @staticmethod
+    def _resolve_model_name(model_name: str) -> str:
+        """
+        Resolve local model paths independent of current working directory.
+
+        The service can be started from the repository root or from
+        python_service/. Users may also keep the historical
+        python_service/models/... value in .env. HuggingFace model IDs are
+        returned unchanged.
+        """
+        if not model_name:
+            return model_name
+
+        raw_path = Path(model_name).expanduser()
+        if raw_path.is_absolute():
+            return str(raw_path)
+
+        candidates = [
+            Path.cwd() / raw_path,
+            _PYTHON_SERVICE_DIR / raw_path,
+            _REPO_ROOT / raw_path,
+        ]
+        if raw_path.parts and raw_path.parts[0] == _PYTHON_SERVICE_DIR.name:
+            candidates.append(_REPO_ROOT / raw_path)
+            candidates.append(_PYTHON_SERVICE_DIR / Path(*raw_path.parts[1:]))
+
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        return model_name
+
     @classmethod
     def get_config(cls, text_type: str) -> ModelConfig:
         """
@@ -121,7 +156,7 @@ class ModelRegistry:
             score_mapping = base.score_mapping
 
         return ModelConfig(
-            model_name=env_model_name,
+            model_name=cls._resolve_model_name(env_model_name),
             version=f"{base.version}-env",
             max_length=base.max_length,
             label_mapping=label_mapping,
