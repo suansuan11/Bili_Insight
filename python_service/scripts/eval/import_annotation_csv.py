@@ -50,7 +50,12 @@ def parse_json_or_list(value: str) -> Optional[str]:
     return json.dumps(parsed, ensure_ascii=False)
 
 
-def normalize_row(row: dict, line_no: int) -> Optional[dict]:
+def normalize_row(
+    row: dict,
+    line_no: int,
+    reviewed_by: Optional[str] = None,
+    allow_ai_prelabel: bool = False,
+) -> Optional[dict]:
     gold_label = (row.get("gold_label") or "").strip().upper()
     if not gold_label:
         return None
@@ -65,11 +70,15 @@ def normalize_row(row: dict, line_no: int) -> Optional[dict]:
     if not raw_text.strip():
         raise ValueError(f"line {line_no}: raw_text is required")
 
-    annotator = (row.get("annotator") or "").strip()
+    annotator = (reviewed_by or row.get("annotator") or "").strip()
     if not annotator:
         raise ValueError(f"line {line_no}: annotator is required for imported gold labels")
-    if is_ai_prelabeled_annotator(annotator):
+    if is_ai_prelabeled_annotator(annotator) and not allow_ai_prelabel:
         raise ValueError(f"line {line_no}: annotator must be a human reviewer, got {annotator!r}")
+
+    notes = row.get("notes") or ""
+    if reviewed_by:
+        notes = f"{notes}; human_reviewed_by={reviewed_by}; ai_prelabel_confirmed_or_corrected=true"
 
     return {
         "source_table": row.get("source_table") or "",
@@ -84,16 +93,25 @@ def normalize_row(row: dict, line_no: int) -> Optional[dict]:
         "gold_emotion_tags_json": parse_json_or_list(row.get("gold_emotion_tags") or ""),
         "gold_aspect_details_json": parse_json_or_list(row.get("gold_aspect_details") or ""),
         "annotator": annotator,
-        "notes": (row.get("notes") or "")[:255] or None,
+        "notes": notes[:255] or None,
     }
 
 
-def read_labeled_rows(csv_path: Path):
+def read_labeled_rows(
+    csv_path: Path,
+    reviewed_by: Optional[str] = None,
+    allow_ai_prelabel: bool = False,
+):
     rows = []
     with csv_path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for line_no, row in enumerate(reader, start=2):
-            normalized = normalize_row(row, line_no)
+            normalized = normalize_row(
+                row,
+                line_no,
+                reviewed_by=reviewed_by,
+                allow_ai_prelabel=allow_ai_prelabel,
+            )
             if normalized:
                 rows.append(normalized)
     return rows
@@ -169,9 +187,24 @@ def main():
     parser = argparse.ArgumentParser(description="Import labeled annotation CSV")
     parser.add_argument("csv_path", type=Path, help="CSV exported by build_annotation_dataset.py")
     parser.add_argument("--dry-run", action="store_true", help="Validate rows without writing DB")
+    parser.add_argument(
+        "--reviewed-by",
+        type=str,
+        default=None,
+        help="Human reviewer name. Overrides the CSV annotator column during import.",
+    )
+    parser.add_argument(
+        "--allow-ai-prelabel",
+        action="store_true",
+        help="Allow importing rows whose annotator is ai_prelabel*. Not recommended for final gold evaluation.",
+    )
     args = parser.parse_args()
 
-    rows = read_labeled_rows(args.csv_path)
+    rows = read_labeled_rows(
+        args.csv_path,
+        reviewed_by=args.reviewed_by,
+        allow_ai_prelabel=args.allow_ai_prelabel,
+    )
     if not rows:
         print("[WARN] CSV 中没有 gold_label 非空的样本，未导入任何数据")
         return

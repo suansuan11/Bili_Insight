@@ -64,13 +64,17 @@ def prelabel_row(row: dict, sentiment_analyzer: SentimentAnalyzer, aspect_analyz
     if disagreed and review_priority == "LOW":
         review_priority = "MEDIUM"
 
-    note_parts = [
+    note_parts = []
+    existing_notes = (row.get("notes") or "").strip()
+    if existing_notes:
+        note_parts.append(existing_notes)
+    note_parts.extend([
         "AI_PRELABEL_NEEDS_HUMAN_REVIEW",
         f"review_priority={review_priority}",
         f"ai_confidence={confidence:.4f}",
         f"ai_score={float(sentiment.get('score') or 0.0):.4f}",
         f"ai_source={sentiment.get('source', '')}",
-    ]
+    ])
     if previous_label:
         note_parts.append(f"previous_model_label={previous_label}")
     if disagreed:

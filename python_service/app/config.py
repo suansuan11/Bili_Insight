@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     # 分析配置
     sentiment_positive_threshold: float = 0.6
     sentiment_negative_threshold: float = 0.4
-    sentiment_score_positive_threshold: float = 0.22
-    sentiment_score_negative_threshold: float = -0.22
+    sentiment_score_positive_threshold: float = 0.36
+    sentiment_score_negative_threshold: float = -0.36
     sentiment_rule_low_confidence_threshold: float = 0.68
     sentiment_rule_high_confidence_threshold: float = 0.82
     sentiment_rule_high_confidence_weight: float = 0.12

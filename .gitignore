@@ -41,6 +41,7 @@ __pycache__/
 .Python
 python_service/venv/
 python_service/.env
+python_service/models/
 python_service/logs/*.log
 python_service/credentials.json
 
