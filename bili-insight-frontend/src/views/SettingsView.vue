@@ -1,27 +1,27 @@
 <template>
   <div class="settings-view">
     <div class="settings-header">
-      <h1 class="settings-title">系统设置</h1>
-      <p class="settings-subtitle">配置个人偏好、账号绑定和系统参数</p>
+      <h1 class="settings-title">{{ t('settings.title') }}</h1>
+      <p class="settings-subtitle">{{ t('settings.subtitle') }}</p>
     </div>
 
     <el-tabs class="settings-tabs" v-model="activeTab">
-      <el-tab-pane label="基本设置" name="basic">
+      <el-tab-pane :label="t('settings.tabs.basic')" name="basic">
         <div class="tab-content">
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">深色模式</h3>
-              <p class="setting-desc">启用深色主题界面</p>
+              <h3 class="setting-name">{{ t('settings.basic.darkMode') }}</h3>
+              <p class="setting-desc">{{ t('settings.basic.darkModeDesc') }}</p>
             </div>
             <el-switch :model-value="isDark" @click="(e: MouseEvent) => toggleDark(e)" />
           </div>
           <el-divider />
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">系统语言</h3>
-              <p class="setting-desc">选择系统的主要显示语言（当前仅本地保存）</p>
+              <h3 class="setting-name">{{ t('settings.basic.language') }}</h3>
+              <p class="setting-desc">{{ t('settings.basic.languageDesc') }}</p>
             </div>
-            <el-select v-model="language" style="width: 160px" @change="saveSettings">
+            <el-select v-model="settings.language" style="width: 160px" @change="handleLanguageChange">
               <el-option label="简体中文" value="zh-CN" />
               <el-option label="English" value="en-US" />
             </el-select>
@@ -29,10 +29,10 @@
           <el-divider />
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">日期时间格式</h3>
-              <p class="setting-desc">配置分析任务列表和详情的时间显示格式（当前仅本地保存）</p>
+              <h3 class="setting-name">{{ t('settings.basic.dateFormat') }}</h3>
+              <p class="setting-desc">{{ t('settings.basic.dateFormatDesc') }}</p>
             </div>
-            <el-select v-model="dateFormat" style="width: 160px" @change="saveSettings">
+            <el-select v-model="settings.dateFormat" style="width: 160px">
               <el-option label="YYYY/MM/DD HH:mm" value="1" />
               <el-option label="YYYY-MM-DD HH:mm" value="2" />
               <el-option label="MM月DD日 HH:mm" value="3" />
@@ -41,15 +41,14 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="账号绑定" name="account">
+      <el-tab-pane :label="t('settings.tabs.account')" name="account">
         <div class="tab-content account-tab">
-          <h3 class="account-title">Bilibili 账号绑定</h3>
-          <p class="account-desc">登录 Bilibili 账号以获取更多评论和弹幕数据，并提高爬虫稳定性。</p>
+          <h3 class="account-title">{{ t('settings.account.title') }}</h3>
+          <p class="account-desc">{{ t('settings.account.desc') }}</p>
 
           <!-- Logged in state -->
           <div v-if="isLoggedIn && userInfo && userInfo.is_login !== false" class="logged-in-card">
             <div class="user-profile">
-              <!-- B站头像有防盗链，通过后端代理转发 -->
               <el-avatar
                 :size="72"
                 :src="userInfo.face ? `/insight/login/qrcode/image-proxy?url=${encodeURIComponent(userInfo.face)}` : ''"
@@ -57,7 +56,7 @@
               />
               <div class="user-details">
                 <h2 class="bili-username">
-                  {{ userInfo.uname || '未知用户' }}
+                  {{ userInfo.uname || t('settings.account.unknownUser') }}
                   <el-tag v-if="userInfo.vip_label?.text" size="small" type="danger" effect="dark">
                     {{ userInfo.vip_label.text }}
                   </el-tag>
@@ -68,13 +67,13 @@
                 </div>
               </div>
             </div>
-            <el-button type="danger" plain @click="logout" style="width: 100%; margin-top: 16px;">注销账号</el-button>
+            <el-button type="danger" plain @click="logout" style="width: 100%; margin-top: 16px;">{{ t('settings.account.logout') }}</el-button>
           </div>
 
           <div v-else-if="isLoggedIn" class="text-center">
-            <el-result icon="success" title="已登录" sub-title="正在获取用户信息...">
+            <el-result icon="success" :title="t('settings.account.loggedIn')" :sub-title="t('settings.account.fetching')">
               <template #extra>
-                <el-button type="danger" plain @click="logout">注销账号</el-button>
+                <el-button type="danger" plain @click="logout">{{ t('settings.account.logout') }}</el-button>
               </template>
             </el-result>
           </div>
@@ -85,72 +84,72 @@
               <div class="qr-box">
                 <qrcode-vue :value="qrCodeUrl" :size="192" :margin="2" level="M" background="#ffffff" foreground="#000000" />
                 <div v-if="isExpired" class="qr-expired-overlay" style="border-radius: 8px">
-                  <span class="qr-expired-text">二维码已过期</span>
+                  <span class="qr-expired-text">{{ t('settings.account.qrExpired') }}</span>
                   <el-icon class="qr-refresh-icon" @click="refreshQrCode"><Refresh /></el-icon>
                 </div>
               </div>
             </div>
             <div v-else class="qr-placeholder">
-              <el-button type="primary" @click="getQrCode" :loading="loadingQr">获取登录二维码</el-button>
+              <el-button type="primary" @click="getQrCode" :loading="loadingQr">{{ t('settings.account.getQr') }}</el-button>
             </div>
             <p v-if="qrCodeUrl" class="qr-status" :class="statusClass">{{ statusText }}</p>
           </div>
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="通知设置" name="notifications">
+      <el-tab-pane :label="t('settings.tabs.notifications')" name="notifications">
         <div class="tab-content">
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">桌面通知</h3>
-              <p class="setting-desc">当分析任务状态变更时，向浏览器推送系统通知</p>
+              <h3 class="setting-name">{{ t('settings.notifications.desktop') }}</h3>
+              <p class="setting-desc">{{ t('settings.notifications.desktopDesc') }}</p>
             </div>
-            <el-switch v-model="desktopNotify" @change="handleDesktopNotifyChange" />
+            <el-switch v-model="settings.desktopNotify" @change="handleDesktopNotifyChange" />
           </div>
           <el-divider />
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">任务完成提示音</h3>
-              <p class="setting-desc">任务处理完毕后播放清脆的提示音效</p>
+              <h3 class="setting-name">{{ t('settings.notifications.sound') }}</h3>
+              <p class="setting-desc">{{ t('settings.notifications.soundDesc') }}</p>
             </div>
             <div class="setting-control">
-              <el-switch v-model="soundNotify" @change="handleSoundNotifyChange" />
-              <el-button size="small" text @click="playTestSound">测试</el-button>
+              <el-switch v-model="settings.soundNotify" @change="handleSoundNotifyChange" />
+              <el-button size="small" text @click="playTestSound">{{ t('settings.notifications.testSound') }}</el-button>
             </div>
           </div>
           <el-divider />
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">周报推送</h3>
-              <p class="setting-desc">每周自动汇总监控数据并推送到默认账号（后端推送服务暂未接入）</p>
+              <h3 class="setting-name">{{ t('settings.notifications.dailyReport') }}</h3>
+              <p class="setting-desc">{{ t('settings.notifications.dailyReportDesc') }}</p>
             </div>
-            <el-switch v-model="dailyReport" @change="handlePlaceholderSetting('周报推送')" />
+            <el-switch v-model="settings.dailyReport" @change="handlePlaceholderSetting('周报推送')" />
           </div>
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="高级设置" name="advanced">
+      <el-tab-pane :label="t('settings.tabs.advanced')" name="advanced">
         <div class="tab-content">
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">默认分析引擎</h3>
-              <p class="setting-desc">选择用于情感分析的底层引擎模型（后端运行时切换暂未接入）</p>
+              <h3 class="setting-name">{{ t('settings.advanced.engine') }}</h3>
+              <p class="setting-desc">{{ t('settings.advanced.engineDesc') }}</p>
             </div>
-            <el-select v-model="analysisEngine" style="width: 160px" @change="handlePlaceholderSetting('默认分析引擎')">
-              <el-option label="SnowNLP (快速)" value="snownlp" />
-              <el-option label="Transformer (精准)" value="transformer" />
+            <el-select v-model="settings.analysisEngine" style="width: 160px" @change="handlePlaceholderSetting('默认分析引擎')">
+              <el-option :label="t('settings.advanced.engineFast')" value="snownlp" />
+              <el-option :label="t('settings.advanced.engineAccurate')" value="transformer" />
             </el-select>
           </div>
           <el-divider />
           <div class="setting-row">
             <div>
-              <h3 class="setting-name">数据保留期限</h3>
-              <p class="setting-desc">超过期限的分析详情数据将被自动清理以节省空间（清理任务暂未接入）</p>
+              <h3 class="setting-name">{{ t('settings.advanced.retention') }}</h3>
+              <p class="setting-desc">{{ t('settings.advanced.retentionDesc') }}</p>
             </div>
-            <el-select v-model="dataRetention" style="width: 160px" @change="handlePlaceholderSetting('数据保留期限')">
-              <el-option label="30 天" value="30" />
-              <el-option label="90 天" value="90" />
-              <el-option label="永不清理" value="permanent" />
+            <el-select v-model="settings.dataRetention" style="width: 160px" @change="handlePlaceholderSetting('数据保留期限')">
+              <el-option :label="t('settings.advanced.retention30d')" value="30" />
+              <el-option :label="t('settings.advanced.retention90d')" value="90" />
+              <el-option :label="t('settings.advanced.retentionForever')" value="permanent" />
             </el-select>
           </div>
         </div>
@@ -166,50 +165,20 @@ import { Refresh } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
 import request from '@/utils/request'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { useI18n } from 'vue-i18n'
+import { useUserSettings, playTestSound } from '@/composables/useUserSettings'
 
+const { t } = useI18n()
 const { isDark, toggleDark } = useDarkMode()
-
-const SETTINGS_STORAGE_KEY = 'bili-insight-settings'
-
-interface LocalSettings {
-  language: string
-  dateFormat: string
-  desktopNotify: boolean
-  soundNotify: boolean
-  dailyReport: boolean
-  analysisEngine: string
-  dataRetention: string
-}
-
-const defaultSettings: LocalSettings = {
-  language: 'zh-CN',
-  dateFormat: '1',
-  desktopNotify: false,
-  soundNotify: false,
-  dailyReport: false,
-  analysisEngine: 'transformer',
-  dataRetention: '90',
-}
-
-function loadLocalSettings(): LocalSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
-    return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings
-  } catch {
-    return defaultSettings
-  }
-}
-
-const localSettings = loadLocalSettings()
+const { settings } = useUserSettings()
 
 const activeTab = ref('account')
-const language = ref(localSettings.language)
-const dateFormat = ref(localSettings.dateFormat)
-const desktopNotify = ref(localSettings.desktopNotify)
-const soundNotify = ref(localSettings.soundNotify)
-const dailyReport = ref(localSettings.dailyReport)
-const analysisEngine = ref(localSettings.analysisEngine)
-const dataRetention = ref(localSettings.dataRetention)
+
+const handleLanguageChange = () => {
+  setTimeout(() => {
+    window.location.reload()
+  }, 100)
+}
 
 const isLoggedIn = ref(false)
 const userInfo = ref<any>(null)
@@ -221,10 +190,10 @@ const loginStatus = ref('')
 let pollTimer: number | null = null
 
 const statusText = computed(() => {
-  if (isExpired.value) return '二维码已过期，请刷新'
-  if (loginStatus.value === 'scanned') return '已扫描，请在手机上确认'
-  if (loginStatus.value === 'confirmed') return '登录成功！'
-  return '请使用 Bilibili App 扫码登录'
+  if (isExpired.value) return t('settings.account.statusExpired')
+  if (loginStatus.value === 'scanned') return t('settings.account.statusScanned')
+  if (loginStatus.value === 'confirmed') return t('settings.account.statusConfirmed')
+  return t('settings.account.statusWait')
 })
 
 const statusClass = computed(() => {
@@ -233,28 +202,13 @@ const statusClass = computed(() => {
   return 'status-default'
 })
 
-const saveSettings = () => {
-  const next: LocalSettings = {
-    language: language.value,
-    dateFormat: dateFormat.value,
-    desktopNotify: desktopNotify.value,
-    soundNotify: soundNotify.value,
-    dailyReport: dailyReport.value,
-    analysisEngine: analysisEngine.value,
-    dataRetention: dataRetention.value,
-  }
-  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next))
-}
-
 const handleDesktopNotifyChange = async () => {
-  if (!desktopNotify.value) {
-    saveSettings()
+  if (!settings.value.desktopNotify) {
     return
   }
 
   if (!('Notification' in window)) {
-    desktopNotify.value = false
-    saveSettings()
+    settings.value.desktopNotify = false
     ElMessage.warning('当前浏览器不支持桌面通知')
     return
   }
@@ -264,47 +218,21 @@ const handleDesktopNotifyChange = async () => {
     : Notification.permission
 
   if (permission !== 'granted') {
-    desktopNotify.value = false
-    saveSettings()
+    settings.value.desktopNotify = false
     ElMessage.warning('未获得浏览器通知权限')
     return
   }
 
-  saveSettings()
   ElMessage.success('桌面通知已启用')
 }
 
-const playTestSound = () => {
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioContextClass) {
-      ElMessage.warning('当前浏览器不支持提示音测试')
-      return
-    }
-    const audioContext = new AudioContextClass()
-    const oscillator = audioContext.createOscillator()
-    const gain = audioContext.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = 880
-    gain.gain.value = 0.08
-    oscillator.connect(gain)
-    gain.connect(audioContext.destination)
-    oscillator.start()
-    oscillator.stop(audioContext.currentTime + 0.18)
-  } catch {
-    ElMessage.warning('提示音播放失败')
-  }
-}
-
 const handleSoundNotifyChange = () => {
-  saveSettings()
-  if (soundNotify.value) {
+  if (settings.value.soundNotify) {
     playTestSound()
   }
 }
 
 const handlePlaceholderSetting = (name: string) => {
-  saveSettings()
   ElMessage.info(`${name}已本地保存，服务端功能暂未接入`)
 }
 

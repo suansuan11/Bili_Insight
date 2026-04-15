@@ -116,6 +116,9 @@ import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getProjects, createProject, updateProject, deleteProject } from '@/api/project'
 import type { ProjectData } from '@/api/project'
 import type { FormInstance } from 'element-plus'
+import { useUserSettings } from '@/composables/useUserSettings'
+
+const { formatDate } = useUserSettings()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -181,10 +184,7 @@ const formatTargetBvidsForTextarea = (targetBvids?: string): string => {
     .join('\n')
 }
 
-const formatDate = (dateStr?: string): string => {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('zh-CN')
-}
+
 
 const openCreateDialog = () => {
   isEdit.value = false

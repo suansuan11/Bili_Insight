@@ -43,12 +43,12 @@
           </div>
           <div v-if="!isCollapsed" class="user-meta">
             <span class="user-name">{{ sidebarUsername }}</span>
-            <span class="user-role">分析师</span>
+            <span class="user-role">{{ t('common.analyst') }}</span>
           </div>
         </div>
-        <button class="logout-btn" @click="handleLogout" :title="isCollapsed ? '退出' : ''">
+        <button class="logout-btn" @click="handleLogout" :title="isCollapsed ? t('common.logout') : ''">
           <el-icon :size="15"><SwitchButton /></el-icon>
-          <span v-if="!isCollapsed">退出</span>
+          <span v-if="!isCollapsed">{{ t('common.logout') }}</span>
         </button>
       </div>
     </aside>
@@ -73,20 +73,22 @@ import { Odometer, TrendCharts, DataAnalysis, Monitor, Setting, User, Fold, Expa
 import { useDarkMode } from '@/composables/useDarkMode'
 import { ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { useI18n } from 'vue-i18n'
 
 // Ensure dark mode state is initialized in the layout
 useDarkMode()
 
 const router = useRouter()
 const isCollapsed = ref(false)
+const { t } = useI18n()
 
-const navItems = [
-  { path: '/', label: 'Dashboard', icon: Odometer },
-  { path: '/popular', label: '热门视频', icon: TrendCharts },
-  { path: '/analysis', label: '分析任务', icon: DataAnalysis },
-  { path: '/projects', label: '监测项目', icon: Monitor },
-  { path: '/settings', label: '设置', icon: Setting },
-]
+const navItems = computed(() => [
+  { path: '/', label: t('nav.dashboard'), icon: Odometer },
+  { path: '/popular', label: t('nav.popular'), icon: TrendCharts },
+  { path: '/analysis', label: t('nav.analysis'), icon: DataAnalysis },
+  { path: '/projects', label: t('nav.projects'), icon: Monitor },
+  { path: '/settings', label: t('nav.settings'), icon: Setting },
+])
 
 const sidebarUsername = computed(() => {
   try {

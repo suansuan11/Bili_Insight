@@ -171,9 +171,11 @@ import { ElMessage } from 'element-plus'
 import { submitAnalysis, getRecentTasks, getTaskStatus } from '@/api/analysis'
 import type { AnalysisTask } from '@/types/analysis'
 import { useRoute, useRouter } from 'vue-router'
+import { useUserSettings, notifyTaskComplete } from '@/composables/useUserSettings'
 
 const route = useRoute()
 const router = useRouter()
+const { formatDate } = useUserSettings()
 const bvid = ref('')
 const tasks = ref<AnalysisTask[]>([])
 const isSubmitting = ref(false)
@@ -278,7 +280,13 @@ const startPolling = () => {
         if (response.code === 0 && response.data) {
           const idx = tasks.value.findIndex(t => t.id === task.id)
           if (idx !== -1) {
+            const oldStatus = tasks.value[idx].status
             Object.assign(tasks.value[idx], response.data)
+            const newStatus = tasks.value[idx].status
+            
+            if ((oldStatus === 'RUNNING' || oldStatus === 'PENDING') && (newStatus === 'COMPLETED' || newStatus === 'FAILED')) {
+              notifyTaskComplete(tasks.value[idx].title || tasks.value[idx].bvid, newStatus === 'FAILED')
+            }
           }
           failCount = 0
         }
@@ -320,17 +328,7 @@ const getStatusText = (status: string) => {
   return texts[status] || status
 }
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+
 
 onMounted(() => {
   fetchTasks().then(() => {

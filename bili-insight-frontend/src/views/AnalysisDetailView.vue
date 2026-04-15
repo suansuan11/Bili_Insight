@@ -279,8 +279,10 @@ import { getAnalysisResult, getComments, getDanmakus } from '@/api/analysis'
 import type { AnalysisResult, VideoComment, VideoDanmaku } from '@/types/analysis'
 import * as echarts from 'echarts'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { useUserSettings } from '@/composables/useUserSettings'
 
 const { isDark } = useDarkMode()
+const { formatDate } = useUserSettings()
 
 const route = useRoute()
 const router = useRouter()
@@ -717,16 +719,7 @@ const jumpToVideo = (seconds: number) => {
    ElMessage.success(`已跳转至 ${formatTime(seconds)}`)
 }
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+
 
 const formatTime = (seconds: number) => {
    if (!seconds) return '00:00'
