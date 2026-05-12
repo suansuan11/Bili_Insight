@@ -25,6 +25,7 @@ class AnalyzeVideoRequest(BaseModel):
     bili_jct: Optional[str] = None
     buvid3: Optional[str] = None
     cookie_json: Optional[str] = None
+    analysis_engine: str = "transformer"
     task_id: Optional[str] = None  # Java 侧传来的 task_id；存在时直接使用，不再自行创建
 
 
@@ -67,12 +68,13 @@ async def analyze_video_background(
     task_id: str,
     bvid: str,
     max_comments: int,
-    credential
+    credential,
+    analysis_engine: str = "transformer"
 ):
     """后台执行视频分析任务"""
-    logger.info(f"[{task_id}] 开始执行视频分析任务 - BVID: {bvid}, 最大评论数: {max_comments}")
+    logger.info(f"[{task_id}] 开始执行视频分析任务 - BVID: {bvid}, 最大评论数: {max_comments}, 引擎: {analysis_engine}")
     bili_service = BilibiliService(credential=credential)
-    storage_service = VideoStorageService()
+    storage_service = VideoStorageService(analysis_engine=analysis_engine)
 
     try:
         # 1. 获取视频信息
@@ -135,7 +137,8 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
 
     返回: 任务ID，前端通过轮询 /status/{task_id} 获取进度
     """
-    logger.info(f"收到视频分析请求 - BVID: {request.bvid}, 最大评论数: {request.max_comments}")
+    analysis_engine = "snownlp" if request.analysis_engine == "snownlp" else "transformer"
+    logger.info(f"收到视频分析请求 - BVID: {request.bvid}, 最大评论数: {request.max_comments}, 引擎: {analysis_engine}")
     try:
         # 获取凭证（由 Java 后端从 DB 读取后传入，无则游客模式）
         credential = make_credential(request.sessdata, request.bili_jct, request.buvid3, request.cookie_json)
@@ -157,7 +160,8 @@ async def analyze_video(request: AnalyzeVideoRequest, background_tasks: Backgrou
             task_id,
             request.bvid,
             request.max_comments,
-            credential
+            credential,
+            analysis_engine
         )
         logger.info(f"后台任务已添加 - 任务ID: {task_id}")
 

@@ -58,6 +58,10 @@ public class PythonApiClient {
      * @return 是否提交成功
      */
     public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson, Integer maxComments) {
+        return submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, cookieJson, maxComments, "transformer");
+    }
+
+    public boolean submitAnalysisTask(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson, Integer maxComments, String analysisEngine) {
         String url = pythonServiceUrl + "/api/analysis/video";
 
         try {
@@ -65,6 +69,7 @@ public class PythonApiClient {
             requestBody.put("bvid", bvid);
             requestBody.put("task_id", taskId);
             requestBody.put("max_comments", maxComments != null ? maxComments : 20000);
+            requestBody.put("analysis_engine", "snownlp".equals(analysisEngine) ? "snownlp" : "transformer");
             if (sessdata != null && !sessdata.trim().isEmpty()) {
                 requestBody.put("sessdata", sessdata);
             }
@@ -82,8 +87,8 @@ public class PythonApiClient {
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-            logger.info("Submitting analysis task: bvid={}, taskId={}, maxComments={}, hasCredential={}", 
-                bvid, taskId, maxComments, sessdata != null);
+            logger.info("Submitting analysis task: bvid={}, taskId={}, maxComments={}, analysisEngine={}, hasCredential={}",
+                bvid, taskId, maxComments, requestBody.get("analysis_engine"), sessdata != null);
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {

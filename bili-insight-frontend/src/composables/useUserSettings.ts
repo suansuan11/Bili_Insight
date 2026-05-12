@@ -8,7 +8,7 @@ export interface LocalSettings {
   dateFormat: string
   desktopNotify: boolean
   soundNotify: boolean
-  dailyReport: boolean
+  weeklyReport: boolean
   analysisEngine: string
   dataRetention: string
 }
@@ -18,7 +18,7 @@ export const defaultSettings: LocalSettings = {
   dateFormat: '1',
   desktopNotify: false,
   soundNotify: false,
-  dailyReport: false,
+  weeklyReport: false,
   analysisEngine: 'transformer',
   dataRetention: '90',
 }
@@ -26,7 +26,9 @@ export const defaultSettings: LocalSettings = {
 function loadLocalSettings(): LocalSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
-    return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings
+    if (!raw) return defaultSettings
+    const parsed = JSON.parse(raw)
+    return { ...defaultSettings, ...parsed, weeklyReport: parsed.weeklyReport ?? parsed.dailyReport ?? defaultSettings.weeklyReport }
   } catch {
     return defaultSettings
   }
@@ -75,6 +77,10 @@ export function notifyTaskComplete(taskTitle: string, isFailed: boolean = false)
 }
 
 export function useUserSettings() {
+  const applySettings = (nextSettings: Partial<LocalSettings>) => {
+    settings.value = { ...settings.value, ...nextSettings }
+  }
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
     const d = new Date(dateStr)
@@ -98,6 +104,7 @@ export function useUserSettings() {
 
   return {
     settings,
+    applySettings,
     formatDate
   }
 }

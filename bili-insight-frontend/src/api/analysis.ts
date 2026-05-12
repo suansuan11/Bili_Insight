@@ -60,3 +60,10 @@ export const getRecentTasks = (limit: number = 20): Promise<ApiResponse<Analysis
         params: { limit }
     })
 }
+
+export const exportCommentsCsv = (taskId: string): Promise<Blob> => {
+    return request.get(`/insight/export/comments/${taskId}`, {
+        responseType: 'blob',
+        transformResponse: [(data) => data]
+    }) as unknown as Promise<Blob>
+}

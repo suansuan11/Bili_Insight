@@ -8,6 +8,7 @@ import com.ecut.bili_insight.mapper.ProjectMapper;
 import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
 import com.ecut.bili_insight.service.BiliCredentialService;
+import com.ecut.bili_insight.service.UserSettingsService;
 import com.ecut.bili_insight.util.ProjectTargetBvidsCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,9 @@ public class ProjectMonitorScheduler {
     @Autowired
     private BiliCredentialService biliCredentialService;
 
+    @Autowired
+    private UserSettingsService userSettingsService;
+
     /**
      * 每小时整点触发一次监测扫描
      */
@@ -85,15 +89,7 @@ public class ProjectMonitorScheduler {
             for (String bvid : bvids) {
                 if (needsAnalysis(project.getId(), project.getUserId(), bvid)) {
                     logger.info("[监测调度] 触发分析: bvid={}, projectId={}", bvid, project.getId());
-                    analysisTaskService.forceSubmitAnalysisTask(
-                            bvid,
-                            project.getUserId(),
-                            project.getId(),
-                            user != null ? user.getBiliSessdata() : null,
-                            user != null ? user.getBiliJct() : null,
-                            user != null ? user.getBiliBuvid3() : null,
-                            user != null ? user.getBiliCookieJson() : null
-                    );
+                    submitProjectAnalysis(project, user, bvid);
                     triggered++;
                 } else {
                     skipped++;
@@ -129,6 +125,29 @@ public class ProjectMonitorScheduler {
         LocalDateTime staleThreshold = LocalDateTime.now().minusDays(STALE_DAYS);
         LocalDateTime freshnessTime = latest.getCompletedAt() != null ? latest.getCompletedAt() : latest.getCreatedAt();
         return freshnessTime != null && freshnessTime.isBefore(staleThreshold);
+    }
+
+    private String getAnalysisEngine(Long userId) {
+        return userSettingsService == null ? "transformer" : userSettingsService.getAnalysisEngine(userId);
+    }
+
+    private void submitProjectAnalysis(Project project, User user, String bvid) {
+        String engine = getAnalysisEngine(project.getUserId());
+        String sessdata = user != null ? user.getBiliSessdata() : null;
+        String biliJct = user != null ? user.getBiliJct() : null;
+        String buvid3 = user != null ? user.getBiliBuvid3() : null;
+        String cookieJson = user != null ? user.getBiliCookieJson() : null;
+        if ("snownlp".equals(engine)) {
+            analysisTaskService.forceSubmitAnalysisTask(
+                    bvid, project.getUserId(), project.getId(),
+                    sessdata, biliJct, buvid3, cookieJson, engine
+            );
+        } else {
+            analysisTaskService.forceSubmitAnalysisTask(
+                    bvid, project.getUserId(), project.getId(),
+                    sessdata, biliJct, buvid3, cookieJson
+            );
+        }
     }
 
     private AnalysisTask latestCandidate(Long projectId, Long userId, String bvid) {

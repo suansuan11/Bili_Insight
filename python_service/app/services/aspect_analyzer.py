@@ -210,13 +210,14 @@ class AspectAnalyzer:
                 keyword_hits.extend(clause_hits)
         return (matched or [prepared_text]), mention_count, list(dict.fromkeys(keyword_hits))
 
-    def analyze(self, text: str, text_type: str = "comment") -> List[Dict]:
+    def analyze(self, text: str, text_type: str = "comment", engine: str = "transformer") -> List[Dict]:
         """
         多切面情感分析
 
         Args:
             text: 原始文本
             text_type: 'comment' / 'danmaku'
+            engine: transformer / snownlp
 
         Returns:
             aspect 情感结果列表，每项格式：
@@ -255,9 +256,9 @@ class AspectAnalyzer:
                 for clause in clauses:
                     local_contexts.append(clause)
                     pair_result = self.sentiment_analyzer.analyze_aspect(
-                        aspect, clause, text_type=text_type
+                        aspect, clause, text_type=text_type, engine=engine
                     )
-                    plain_result = self.sentiment_analyzer.analyze(clause, text_type=text_type)
+                    plain_result = self.sentiment_analyzer.analyze(clause, text_type=text_type, engine=engine)
                     sarcasm_like = "sarcasm" in (plain_result.get("emotion_tags") or [])
                     rhetorical = "？" in clause or "?" in clause or "这也" in clause or "就这" in clause
                     if sarcasm_like or rhetorical:

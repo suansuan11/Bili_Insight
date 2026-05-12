@@ -194,13 +194,14 @@ class SentimentAnalyzer:
             "normalized_text": "",
         }
 
-    def analyze(self, text: str, text_type: str = "comment") -> dict:
+    def analyze(self, text: str, text_type: str = "comment", engine: str = "transformer") -> dict:
         """
         分析文本情感
 
         Args:
             text: 原始文本
             text_type: 文本类型 'comment' / 'danmaku'
+            engine: transformer / snownlp
 
         Returns:
             dict 包含:
@@ -222,7 +223,7 @@ class SentimentAnalyzer:
 
         normalized = self.normalizer.normalize(text, text_type)
 
-        if self._use_fallback or self._transformer_failed:
+        if engine == "snownlp" or self._use_fallback or self._transformer_failed:
             result = self._analyze_with_fallback(normalized, text_type)
         else:
             try:
@@ -238,7 +239,7 @@ class SentimentAnalyzer:
 
         return result
 
-    def analyze_aspect(self, aspect: str, text: str, text_type: str = "comment") -> dict:
+    def analyze_aspect(self, aspect: str, text: str, text_type: str = "comment", engine: str = "transformer") -> dict:
         """
         对 aspect + 文本对做情感判别。
 
@@ -253,7 +254,7 @@ class SentimentAnalyzer:
 
         normalized = self.normalizer.normalize(text, text_type)
 
-        if self._use_fallback or self._transformer_failed:
+        if engine == "snownlp" or self._use_fallback or self._transformer_failed:
             result = self._analyze_with_fallback(normalized, text_type, text_pair=aspect)
         else:
             try:

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecut.bili_insight.mapper.UserSettingsMapper">
+
+    <resultMap id="UserSettingsResultMap" type="com.ecut.bili_insight.entity.UserSettings">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="language" column="language"/>
+        <result property="dateFormat" column="date_format"/>
+        <result property="desktopNotify" column="desktop_notify"/>
+        <result property="soundNotify" column="sound_notify"/>
+        <result property="weeklyReport" column="weekly_report"/>
+        <result property="analysisEngine" column="analysis_engine"/>
+        <result property="dataRetention" column="data_retention"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="UserSettingsResultMap">
+        SELECT * FROM user_settings WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert" parameterType="com.ecut.bili_insight.entity.UserSettings">
+        INSERT INTO user_settings
+            (user_id, language, date_format, desktop_notify, sound_notify, weekly_report,
+             analysis_engine, data_retention, created_at, updated_at)
+        VALUES
+            (#{userId}, #{language}, #{dateFormat}, #{desktopNotify}, #{soundNotify}, #{weeklyReport},
+             #{analysisEngine}, #{dataRetention}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+            language = VALUES(language),
+            date_format = VALUES(date_format),
+            desktop_notify = VALUES(desktop_notify),
+            sound_notify = VALUES(sound_notify),
+            weekly_report = VALUES(weekly_report),
+            analysis_engine = VALUES(analysis_engine),
+            data_retention = VALUES(data_retention),
+            updated_at = NOW()
+    </insert>
+
+    <select id="findUsersWithRetention" resultMap="UserSettingsResultMap">
+        SELECT * FROM user_settings
+        WHERE data_retention IN ('30', '90')
+    </select>
+
+    <select id="findWeeklyReportUsers" resultMap="UserSettingsResultMap">
+        SELECT * FROM user_settings
+        WHERE weekly_report = 1
+    </select>
+
+    <delete id="deleteTerminalTasksBefore">
+        DELETE FROM analysis_task
+        WHERE user_id = #{userId}
+          AND status IN ('COMPLETED', 'FAILED')
+          AND COALESCE(completed_at, updated_at, created_at) &lt; #{cutoff}
+    </delete>
+</mapper>

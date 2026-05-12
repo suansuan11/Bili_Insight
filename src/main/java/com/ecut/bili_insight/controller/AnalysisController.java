@@ -11,6 +11,7 @@ import com.ecut.bili_insight.mapper.UserMapper;
 import com.ecut.bili_insight.service.IAnalysisTaskService;
 import com.ecut.bili_insight.service.BiliCredentialService;
 import com.ecut.bili_insight.service.PythonApiClient;
+import com.ecut.bili_insight.service.UserSettingsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,9 @@ public class AnalysisController {
 
     @Autowired
     private PythonApiClient pythonApiClient;
+
+    @Autowired
+    private UserSettingsService userSettingsService;
 
     /** 获取当前登录用户（含B站凭证） */
     private User getCurrentUser() {
@@ -107,10 +111,12 @@ public class AnalysisController {
             String taskId = analysisTaskService.submitAnalysisTask(
                     bvid,
                     currentUser.getId(),
+                    null,
                     currentUser.getBiliSessdata(),
                     currentUser.getBiliJct(),
                     currentUser.getBiliBuvid3(),
-                    currentUser.getBiliCookieJson()
+                    currentUser.getBiliCookieJson(),
+                    userSettingsService.getAnalysisEngine(currentUser.getId())
             );
 
             Map<String, Object> response = new HashMap<>();

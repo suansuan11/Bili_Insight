@@ -24,10 +24,14 @@ public interface IAnalysisTaskService {
      * @return 任务ID
      */
     default String submitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
-        return submitAnalysisTask(bvid, userId, null, sessdata, biliJct, buvid3, cookieJson);
+        return submitAnalysisTask(bvid, userId, null, sessdata, biliJct, buvid3, cookieJson, "transformer");
     }
 
-    String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson);
+    default String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+        return submitAnalysisTask(bvid, userId, projectId, sessdata, biliJct, buvid3, cookieJson, "transformer");
+    }
+
+    String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson, String analysisEngine);
 
     /**
      * 强制重新分析（忽略已有 COMPLETED 任务，始终创建新任务）
@@ -40,10 +44,14 @@ public interface IAnalysisTaskService {
      * @return 新任务ID
      */
     default String forceSubmitAnalysisTask(String bvid, Long userId, String sessdata, String biliJct, String buvid3, String cookieJson) {
-        return forceSubmitAnalysisTask(bvid, userId, null, sessdata, biliJct, buvid3, cookieJson);
+        return forceSubmitAnalysisTask(bvid, userId, null, sessdata, biliJct, buvid3, cookieJson, "transformer");
     }
 
-    String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson);
+    default String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+        return forceSubmitAnalysisTask(bvid, userId, projectId, sessdata, biliJct, buvid3, cookieJson, "transformer");
+    }
+
+    String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson, String analysisEngine);
 
     /**
      * 查询任务状态
@@ -87,6 +95,8 @@ public interface IAnalysisTaskService {
      * @return 评论列表
      */
     List<VideoComment> getComments(String taskId, String sentimentLabel, String aspect);
+
+    List<VideoComment> getCommentsForExport(String taskId, Long userId);
 
     Map<String, Object> getCommentsPage(String taskId, Long userId, String sentimentLabel, String aspect, int page, int size);
 

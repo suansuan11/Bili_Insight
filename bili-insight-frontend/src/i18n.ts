@@ -26,9 +26,9 @@ const messages = {
         darkMode: '深色模式',
         darkModeDesc: '启用深色主题界面',
         language: '系统语言',
-        languageDesc: '选择系统的主要显示语言（当前仅本地保存）',
+        languageDesc: '选择系统的主要显示语言',
         dateFormat: '日期时间格式',
-        dateFormatDesc: '配置分析任务列表和详情的时间显示格式（当前仅本地保存）'
+        dateFormatDesc: '配置分析任务列表和详情的时间显示格式'
       },
       account: {
         title: 'Bilibili 账号绑定',
@@ -52,15 +52,15 @@ const messages = {
         soundDesc: '任务处理完毕后播放清脆的提示音效',
         testSound: '测试',
         dailyReport: '周报推送',
-        dailyReportDesc: '每周自动汇总监控数据并推送到默认账号（后端推送服务暂未接入）'
+        dailyReportDesc: '每周自动汇总监控数据，当前可在后端生成摘要'
       },
       advanced: {
         engine: '默认分析引擎',
-        engineDesc: '选择用于情感分析的底层引擎模型（后端运行时切换暂未接入）',
+        engineDesc: '选择后续新分析任务使用的底层情感分析引擎',
         engineFast: 'SnowNLP (快速)',
         engineAccurate: 'Transformer (精准)',
         retention: '数据保留期限',
-        retentionDesc: '超过期限的分析详情数据将被自动清理以节省空间（清理任务暂未接入）',
+        retentionDesc: '超过期限的已完成或失败分析任务将被自动清理',
         retention30d: '30 天',
         retention90d: '90 天',
         retentionForever: '永不清理'
@@ -92,9 +92,9 @@ const messages = {
         darkMode: 'Dark Mode',
         darkModeDesc: 'Enable dark theme interface',
         language: 'System Language',
-        languageDesc: 'Select the main display language (currently local only)',
+        languageDesc: 'Select the main display language',
         dateFormat: 'Date/Time Format',
-        dateFormatDesc: 'Configure time display format for lists and details (local only)'
+        dateFormatDesc: 'Configure time display format for lists and details'
       },
       account: {
         title: 'Bilibili Account Binding',
@@ -118,15 +118,15 @@ const messages = {
         soundDesc: 'Play a crisp notification sound when a task completes',
         testSound: 'Test',
         dailyReport: 'Weekly Report Push',
-        dailyReportDesc: 'Auto-summarize monitoring data weekly (backend push pending)'
+        dailyReportDesc: 'Auto-summarize monitoring data weekly; backend summary is available'
       },
       advanced: {
         engine: 'Default Analysis Engine',
-        engineDesc: 'Select the underlying engine model for sentiment analysis (backend toggle pending)',
+        engineDesc: 'Select the sentiment engine for newly submitted analysis tasks',
         engineFast: 'SnowNLP (Fast)',
         engineAccurate: 'Transformer (Accurate)',
         retention: 'Data Retention Period',
-        retentionDesc: 'Expired analysis data will be auto-cleaned to save space (cleanup task pending)',
+        retentionDesc: 'Expired completed or failed analysis tasks will be auto-cleaned',
         retention30d: '30 Days',
         retention90d: '90 Days',
         retentionForever: 'Keep Forever'

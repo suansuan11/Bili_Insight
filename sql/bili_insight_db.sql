@@ -328,6 +328,33 @@ INSERT INTO `user` (`id`, `username`, `password_hash`, `email`, `role`, `created
 COMMIT;
 
 -- ----------------------------
+-- Table structure for user_settings
+-- ----------------------------
+DROP TABLE IF EXISTS `user_settings`;
+CREATE TABLE `user_settings` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `language` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'zh-CN',
+  `date_format` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '1',
+  `desktop_notify` tinyint(1) NOT NULL DEFAULT 0,
+  `sound_notify` tinyint(1) NOT NULL DEFAULT 0,
+  `weekly_report` tinyint(1) NOT NULL DEFAULT 0,
+  `analysis_engine` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'transformer',
+  `data_retention` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '90',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_settings_user_id` (`user_id`),
+  CONSTRAINT `fk_user_settings_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户偏好与运行时设置';
+
+-- ----------------------------
+-- Records of user_settings
+-- ----------------------------
+BEGIN;
+COMMIT;
+
+-- ----------------------------
 -- Table structure for video_comment
 -- ----------------------------
 DROP TABLE IF EXISTS `video_comment`;

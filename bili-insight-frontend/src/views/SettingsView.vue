@@ -21,7 +21,7 @@
               <h3 class="setting-name">{{ t('settings.basic.language') }}</h3>
               <p class="setting-desc">{{ t('settings.basic.languageDesc') }}</p>
             </div>
-            <el-select v-model="settings.language" style="width: 160px" @change="handleLanguageChange">
+            <el-select v-model="settings.language" style="width: 160px" @change="saveSettingsChange">
               <el-option label="简体中文" value="zh-CN" />
               <el-option label="English" value="en-US" />
             </el-select>
@@ -32,7 +32,7 @@
               <h3 class="setting-name">{{ t('settings.basic.dateFormat') }}</h3>
               <p class="setting-desc">{{ t('settings.basic.dateFormatDesc') }}</p>
             </div>
-            <el-select v-model="settings.dateFormat" style="width: 160px">
+            <el-select v-model="settings.dateFormat" style="width: 160px" @change="saveSettingsChange">
               <el-option label="YYYY/MM/DD HH:mm" value="1" />
               <el-option label="YYYY-MM-DD HH:mm" value="2" />
               <el-option label="MM月DD日 HH:mm" value="3" />
@@ -123,7 +123,7 @@
               <h3 class="setting-name">{{ t('settings.notifications.dailyReport') }}</h3>
               <p class="setting-desc">{{ t('settings.notifications.dailyReportDesc') }}</p>
             </div>
-            <el-switch v-model="settings.dailyReport" @change="handlePlaceholderSetting('周报推送')" />
+            <el-switch v-model="settings.weeklyReport" @change="saveSettingsChange" />
           </div>
         </div>
       </el-tab-pane>
@@ -135,7 +135,7 @@
               <h3 class="setting-name">{{ t('settings.advanced.engine') }}</h3>
               <p class="setting-desc">{{ t('settings.advanced.engineDesc') }}</p>
             </div>
-            <el-select v-model="settings.analysisEngine" style="width: 160px" @change="handlePlaceholderSetting('默认分析引擎')">
+            <el-select v-model="settings.analysisEngine" style="width: 160px" @change="saveSettingsChange">
               <el-option :label="t('settings.advanced.engineFast')" value="snownlp" />
               <el-option :label="t('settings.advanced.engineAccurate')" value="transformer" />
             </el-select>
@@ -146,7 +146,7 @@
               <h3 class="setting-name">{{ t('settings.advanced.retention') }}</h3>
               <p class="setting-desc">{{ t('settings.advanced.retentionDesc') }}</p>
             </div>
-            <el-select v-model="settings.dataRetention" style="width: 160px" @change="handlePlaceholderSetting('数据保留期限')">
+            <el-select v-model="settings.dataRetention" style="width: 160px" @change="saveSettingsChange">
               <el-option :label="t('settings.advanced.retention30d')" value="30" />
               <el-option :label="t('settings.advanced.retention90d')" value="90" />
               <el-option :label="t('settings.advanced.retentionForever')" value="permanent" />
@@ -167,18 +167,13 @@ import request from '@/utils/request'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useI18n } from 'vue-i18n'
 import { useUserSettings, playTestSound } from '@/composables/useUserSettings'
+import { getUserSettings, saveUserSettings } from '@/api/settings'
 
 const { t } = useI18n()
 const { isDark, toggleDark } = useDarkMode()
-const { settings } = useUserSettings()
+const { settings, applySettings } = useUserSettings()
 
 const activeTab = ref('account')
-
-const handleLanguageChange = () => {
-  setTimeout(() => {
-    window.location.reload()
-  }, 100)
-}
 
 const isLoggedIn = ref(false)
 const userInfo = ref<any>(null)
@@ -188,6 +183,29 @@ const loadingQr = ref(false)
 const isExpired = ref(false)
 const loginStatus = ref('')
 let pollTimer: number | null = null
+
+const loadSettings = async () => {
+  try {
+    const res = await getUserSettings()
+    if (res.code === 0 && res.data) {
+      applySettings(res.data)
+    }
+  } catch (e) {
+    console.warn('加载用户设置失败，继续使用本地设置', e)
+  }
+}
+
+const saveSettingsChange = async () => {
+  try {
+    const res = await saveUserSettings(settings.value)
+    if (res.code === 0 && res.data) {
+      applySettings(res.data)
+      ElMessage.success('设置已保存')
+    }
+  } catch (e) {
+    ElMessage.error('保存设置失败')
+  }
+}
 
 const statusText = computed(() => {
   if (isExpired.value) return t('settings.account.statusExpired')
@@ -204,6 +222,7 @@ const statusClass = computed(() => {
 
 const handleDesktopNotifyChange = async () => {
   if (!settings.value.desktopNotify) {
+    await saveSettingsChange()
     return
   }
 
@@ -223,17 +242,14 @@ const handleDesktopNotifyChange = async () => {
     return
   }
 
-  ElMessage.success('桌面通知已启用')
+  await saveSettingsChange()
 }
 
-const handleSoundNotifyChange = () => {
+const handleSoundNotifyChange = async () => {
   if (settings.value.soundNotify) {
     playTestSound()
   }
-}
-
-const handlePlaceholderSetting = (name: string) => {
-  ElMessage.info(`${name}已本地保存，服务端功能暂未接入`)
+  await saveSettingsChange()
 }
 
 
@@ -340,6 +356,7 @@ const logout = async () => {
 }
 
 onMounted(() => {
+  loadSettings()
   checkLoginStatus()
 })
 

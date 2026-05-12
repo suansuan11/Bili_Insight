@@ -48,7 +48,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 提交视频分析任务（若已有 COMPLETED 任务则复用）
      */
     @Override
-    public String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+    public String submitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson, String analysisEngine) {
         logger.info("Submitting analysis task: bvid={}, userId={}, hasCredential={}", bvid, userId, sessdata != null);
 
         AnalysisTask existingTask = projectId == null
@@ -62,7 +62,7 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         }
 
         String taskId = createTaskInTransaction(bvid, userId, projectId);
-        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
+        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson, normalizeAnalysisEngine(analysisEngine));
         return taskId;
     }
 
@@ -87,10 +87,10 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 强制重新分析（忽略已有 COMPLETED 任务）
      */
     @Override
-    public String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+    public String forceSubmitAnalysisTask(String bvid, Long userId, Long projectId, String sessdata, String biliJct, String buvid3, String cookieJson, String analysisEngine) {
         logger.info("Force submitting analysis task: bvid={}, userId={}", bvid, userId);
         String taskId = createTaskInTransaction(bvid, userId, projectId);
-        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
+        callPythonServiceAsync(bvid, taskId, sessdata, biliJct, buvid3, cookieJson, normalizeAnalysisEngine(analysisEngine));
         return taskId;
     }
 
@@ -98,10 +98,12 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
      * 异步调用Python分析服务，传入用户的B站凭证（可为null）
      */
     @Async
-    protected void callPythonServiceAsync(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson) {
+    protected void callPythonServiceAsync(String bvid, String taskId, String sessdata, String biliJct, String buvid3, String cookieJson, String analysisEngine) {
         try {
             logger.info("Calling Python service async: taskId={}", taskId);
-            boolean success = pythonApiClient.submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
+            boolean success = "snownlp".equals(analysisEngine)
+                    ? pythonApiClient.submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, cookieJson, null, analysisEngine)
+                    : pythonApiClient.submitAnalysisTask(bvid, taskId, sessdata, biliJct, buvid3, cookieJson);
             if (!success) {
                 taskMapper.updateStatus(taskId, "FAILED", "Failed to call Python service");
                 logger.error("Python service call failed for task {}", taskId);
@@ -110,6 +112,10 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
             logger.error("Error in async Python service call: {}", e.getMessage(), e);
             taskMapper.updateStatus(taskId, "FAILED", e.getMessage());
         }
+    }
+
+    private String normalizeAnalysisEngine(String analysisEngine) {
+        return "snownlp".equals(analysisEngine) ? "snownlp" : "transformer";
     }
 
     private AnalysisTask validateTaskAccess(String taskId, Long userId) {
@@ -210,6 +216,12 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
             logger.debug("Fetching all comments for task {}", taskId);
             return commentMapper.findByTaskId(taskId);
         }
+    }
+
+    @Override
+    public List<VideoComment> getCommentsForExport(String taskId, Long userId) {
+        validateTaskAccess(taskId, userId);
+        return getComments(taskId, null, null);
     }
 
     @Override

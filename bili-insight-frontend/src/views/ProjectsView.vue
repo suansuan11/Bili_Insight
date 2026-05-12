@@ -38,7 +38,7 @@
             </el-tag>
           </div>
           <div class="card-footer">
-            <span class="create-time">创建于 {{ formatDate(project.createdAt) }}</span>
+            <span class="create-time">创建于 {{ formatDate(project.createdAt || '') }}</span>
           </div>
         </el-card>
       </el-col>

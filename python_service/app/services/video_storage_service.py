@@ -18,7 +18,7 @@ from .aspect_analyzer import AspectAnalyzer
 class VideoStorageService:
     """视频数据存储服务"""
 
-    def __init__(self):
+    def __init__(self, analysis_engine: str = "transformer"):
         """初始化数据库连接与分析模块"""
         self.db_config = {
             'host': settings.db_host,
@@ -28,6 +28,8 @@ class VideoStorageService:
             'database': settings.db_name,
             'charset': 'utf8mb4'
         }
+
+        self.analysis_engine = "snownlp" if analysis_engine == "snownlp" else "transformer"
 
         # 注入情感分析模块（单例，懒加载模型）
         self.sentiment_analyzer = SentimentAnalyzer()
@@ -156,8 +158,8 @@ class VideoStorageService:
 
     def _analyze_comment_sentiment(self, content: str) -> dict:
         """分析评论情感（含 aspect 多切面）"""
-        sentiment = self.sentiment_analyzer.analyze(content, text_type="comment")
-        aspect_details = self.aspect_analyzer.analyze(content, text_type="comment")
+        sentiment = self.sentiment_analyzer.analyze(content, text_type="comment", engine=self.analysis_engine)
+        aspect_details = self.aspect_analyzer.analyze(content, text_type="comment", engine=self.analysis_engine)
         primary_aspect = self.aspect_analyzer.get_primary_aspect(aspect_details)
         return {
             "sentiment": sentiment,
@@ -167,7 +169,7 @@ class VideoStorageService:
 
     def _analyze_danmaku_sentiment(self, content: str) -> dict:
         """分析弹幕情感（仅主情感，不做 aspect）"""
-        sentiment = self.sentiment_analyzer.analyze(content, text_type="danmaku")
+        sentiment = self.sentiment_analyzer.analyze(content, text_type="danmaku", engine=self.analysis_engine)
         return {"sentiment": sentiment}
 
     async def save_comments(self, task_id: str, bvid: str, comments: List[Dict]) -> int:

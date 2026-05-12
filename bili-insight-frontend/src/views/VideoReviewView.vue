@@ -59,7 +59,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
-import { getAnalysisResult, getComments, getTimeline } from '@/api/analysis'
+import { exportCommentsCsv, getAnalysisResult, getComments, getTimeline } from '@/api/analysis'
 import CommentList from '@/components/CommentList.vue'
 
 const route = useRoute()
@@ -164,13 +164,14 @@ const handleResize = () => {
   chartInstance?.resize()
 }
 
-const exportComments = () => {
-  const token = localStorage.getItem('token')
-  const url = `http://localhost:8080/insight/export/comments/${taskId}`
+const exportComments = async () => {
+  const blob = await exportCommentsCsv(String(taskId))
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = `comments_${taskId}.csv`
   a.click()
+  URL.revokeObjectURL(url)
 }
 
 onMounted(() => {
