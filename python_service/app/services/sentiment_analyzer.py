@@ -38,6 +38,7 @@ class SentimentAnalyzer:
         self._models: Dict[str, object] = {}
         self._use_fallback = not _TRANSFORMERS_AVAILABLE
         self._transformer_failed = False
+        self._SnowNLP = None
 
         if self._use_fallback:
             self._init_fallback()
@@ -224,6 +225,8 @@ class SentimentAnalyzer:
         normalized = self.normalizer.normalize(text, text_type)
 
         if engine == "snownlp" or self._use_fallback or self._transformer_failed:
+            if self._SnowNLP is None:
+                self._init_fallback()
             result = self._analyze_with_fallback(normalized, text_type)
         else:
             try:
@@ -255,6 +258,8 @@ class SentimentAnalyzer:
         normalized = self.normalizer.normalize(text, text_type)
 
         if engine == "snownlp" or self._use_fallback or self._transformer_failed:
+            if self._SnowNLP is None:
+                self._init_fallback()
             result = self._analyze_with_fallback(normalized, text_type, text_pair=aspect)
         else:
             try:

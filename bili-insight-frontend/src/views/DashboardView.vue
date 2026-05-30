@@ -349,10 +349,11 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
       textStyle: { color: '#f1f5f9' }
     },
     legend: {
-      bottom: '2%',
+      bottom: '1%',
       left: 'center',
-      itemWidth: 12,
-      itemHeight: 12,
+      itemWidth: 10,
+      itemHeight: 10,
+      itemGap: 12,
       textStyle: { color: '#64748b', fontSize: 12 },
       formatter: (name: string) => {
         const item = pieData.find(entry => entry.name === name)
@@ -363,7 +364,7 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
       text: String(total || 0),
       subtext: '评论情感',
       left: 'center',
-      top: '34%',
+      top: '28%',
       itemGap: 4,
       textStyle: {
         color: isDark.value ? '#f8fafc' : '#0f172a',
@@ -382,8 +383,8 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
           {
             name: '主情感',
             type: 'pie',
-            radius: ['42%', '58%'],
-            center: ['50%', '44%'],
+            radius: ['38%', '52%'],
+            center: ['50%', '38%'],
             itemStyle: { borderRadius: 0, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 1 },
             label: { show: false },
             emphasis: { scale: true },
@@ -392,8 +393,8 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
           {
             name: '情感强度',
             type: 'pie',
-            radius: ['64%', '82%'],
-            center: ['50%', '44%'],
+            radius: ['58%', '72%'],
+            center: ['50%', '38%'],
             itemStyle: { borderRadius: 0, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 1 },
             label: { show: false },
             emphasis: { scale: true },
@@ -403,8 +404,8 @@ const renderSentimentChart = (data: DashboardSentimentDistribution | Record<stri
       : [{
           name: '情感分布',
           type: 'pie',
-          radius: ['52%', '78%'],
-          center: ['50%', '44%'],
+          radius: ['48%', '68%'],
+          center: ['50%', '38%'],
           itemStyle: { borderRadius: 0, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 1 },
           label: { show: false },
           emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: isDark.value ? '#f8fafc' : '#0f172a' } },
@@ -609,7 +610,7 @@ onMounted(() => {
 }
 
 .chart-card--sentiment {
-  min-height: 320px;
+  height: 360px;
 }
 
 .chart-header {
@@ -651,7 +652,7 @@ onMounted(() => {
 }
 
 .chart-body--sentiment {
-  height: 280px;
+  height: 300px;
 }
 
 /* Aspects list */
